@@ -142,6 +142,12 @@
   const overlay     = document.getElementById('modal-overlay');
 
   // ── Init ──────────────────────────────────────────────────
+  // Force dropdowns to reset on load (prevents browser caching previous selection)
+  distEl.value = "";
+  pubEl.value  = "";
+  resEl.value  = "";
+  searchEl.value = "";
+
   currentMonth = await Catalog.getLatestMonth();
   if (currentMonth) {
     document.getElementById('catalog-subtitle').textContent =
@@ -193,12 +199,19 @@
     if (resEl.value === 'reserved')   displayed = items.filter(i => reservedIds.has(i.id));
     if (resEl.value === 'unreserved') displayed = items.filter(i => !reservedIds.has(i.id));
 
-    // Stats
+    // Stats — query full counts across entire catalog month, not just current page
     document.getElementById('stat-total').textContent = total;
-    document.getElementById('stat-lunar').textContent =
-      items.filter(i => i.distributor === 'Lunar').length;
-    document.getElementById('stat-prh').textContent =
-      items.filter(i => i.distributor === 'PRH').length;
+    if (page === 1 && !distEl.value && !pubEl.value && !searchEl.value.trim()) {
+      // Only fetch full distributor counts when no filters are active
+      const [lunarCount, prhCount] = await Promise.all([
+        db.from('catalog').select('id', { count: 'exact', head: true })
+          .eq('catalog_month', currentMonth).eq('distributor', 'Lunar'),
+        db.from('catalog').select('id', { count: 'exact', head: true })
+          .eq('catalog_month', currentMonth).eq('distributor', 'PRH'),
+      ]);
+      document.getElementById('stat-lunar').textContent = lunarCount.count ?? 0;
+      document.getElementById('stat-prh').textContent   = prhCount.count  ?? 0;
+    }
 
     countEl.textContent = `Showing ${displayed.length} of ${total} items`;
 
