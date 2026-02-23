@@ -72,6 +72,10 @@
       <option value="reserved">Reserved Only</option>
       <option value="unreserved">Not Yet Reserved</option>
     </select>
+    <!-- Admin only: shown after init if user is admin -->
+    <select class="filter-select" id="admin-user-select" style="display:none;border-color:var(--accent);color:var(--accent)">
+      <option value="">&#9881; Manage customer…</option>
+    </select>
   </div>
 
   <!-- Results count -->
@@ -154,7 +158,38 @@
       `Catalog for ${currentMonth} — browse and reserve items`;
   }
 
-  reservedIds = await Preorders.getMyIds(user.id);
+  // ── Admin user switcher ───────────────────────────────────
+  const adminSelectEl = document.getElementById('admin-user-select');
+  if (profile?.is_admin) {
+    adminSelectEl.style.display = '';
+    // Load all customer profiles for the dropdown
+    const { data: allProfiles } = await db
+      .from('user_profiles')
+      .select('id, full_name')
+      .eq('is_admin', false)
+      .order('full_name');
+    (allProfiles || []).forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.full_name;
+      adminSelectEl.appendChild(opt);
+    });
+    adminSelectEl.addEventListener('change', async () => {
+      const selectedId   = adminSelectEl.value;
+      const selectedName = adminSelectEl.options[adminSelectEl.selectedIndex].text;
+      if (selectedId) {
+        AdminContext.set(selectedId, selectedName);
+      } else {
+        AdminContext.clear();
+      }
+      // Reload reservations for the newly selected user
+      reservedIds = await Preorders.getMyIds(AdminContext.resolveUserId(user.id));
+      document.getElementById('stat-reserved').textContent = reservedIds.size;
+      await loadCatalog(1);
+    });
+  }
+
+  reservedIds = await Preorders.getMyIds(AdminContext.resolveUserId(user.id));
   document.getElementById('stat-reserved').textContent = reservedIds.size;
 
   // Load publishers for filter
@@ -286,10 +321,11 @@
   // ── Reserve Toggle ────────────────────────────────────────
   async function toggleReserve(catalogId, btn) {
     const isReserved = reservedIds.has(catalogId);
+    const targetUserId = AdminContext.resolveUserId(user.id);
     btn.disabled = true;
 
     if (isReserved) {
-      const { error } = await Preorders.cancel(user.id, catalogId);
+      const { error } = await Preorders.cancel(targetUserId, catalogId);
       if (error) { toast('Failed to cancel reservation', 'error'); }
       else {
         reservedIds.delete(catalogId);
@@ -302,7 +338,7 @@
         updateReservedStat();
       }
     } else {
-      const { error } = await Preorders.reserve(user.id, catalogId);
+      const { error } = await Preorders.reserve(targetUserId, catalogId);
       if (error) {
         toast(error.code === '23505' ? 'Already reserved' : 'Failed to reserve', 'error');
       } else {
@@ -335,6 +371,13 @@
 
   function updateReservedStat() {
     document.getElementById('stat-reserved').textContent = reservedIds.size;
+    // Update subtitle to reflect whose list we're managing
+    const subtitle = document.getElementById('catalog-subtitle');
+    if (AdminContext.isActive()) {
+      subtitle.innerHTML = `Catalog for ${currentMonth} &mdash; managing <strong style="color:var(--accent)">${escapeHtml(AdminContext.activeUserName)}</strong>`;
+    } else {
+      subtitle.textContent = `Catalog for ${currentMonth} — browse and reserve items`;
+    }
   }
 
   // ── Modal ─────────────────────────────────────────────────
