@@ -691,6 +691,32 @@ button { cursor: pointer; font-family: var(--font-body); }
 .empty-state h3 { font-size: 1rem; color: var(--text-secondary); margin-bottom: 6px; }
 .empty-state p { font-size: 0.85rem; }
 
+/* ── Quantity Stepper ──────────────────────────────────────── */
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.qty-btn {
+  width: 28px;
+  height: 28px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  line-height: 1;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.qty-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* ── Toast Notifications ───────────────────────────────────── */
 #toast-container {
   position: fixed;
