@@ -345,13 +345,12 @@
 
     const isReserved = reservedIds.has(catalogId);
     const coverImg = document.getElementById('modal-cover-img');
-    if (comic.cover_url) {
-      coverImg.src = comic.cover_url;
-      coverImg.alt = comic.title;
-      coverImg.parentElement.style.display = '';
-    } else {
-      coverImg.parentElement.style.display = 'none';
-    }
+    coverImg.classList.remove('loaded');
+    coverImg.src = comic.cover_url || COVER_PLACEHOLDER;
+    coverImg.alt = comic.title;
+    coverImg.onerror = function() { this.src = COVER_PLACEHOLDER; this.onerror = null; this.classList.add('loaded'); };
+    coverImg.onload  = function() { this.classList.add('loaded'); };
+    coverImg.parentElement.style.display = '';
 
     document.getElementById('modal-title').textContent   = comic.title || '';
     document.getElementById('modal-series').textContent  =
