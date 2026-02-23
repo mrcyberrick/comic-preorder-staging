@@ -125,6 +125,7 @@
         id,
         created_at,
         user_id,
+        quantity,
         catalog (
           id, distributor, item_code, title, series_name, publisher,
           issue_number, format, price_usd, foc_date, on_sale_date,
@@ -158,11 +159,11 @@
   // ── Stats ─────────────────────────────────────────────────
   function renderStats() {
     const customers = new Set(allPreorders.map(p => p.user_id)).size;
-    const lunar  = allPreorders.filter(p => p.catalog?.distributor === 'Lunar').length;
-    const prh    = allPreorders.filter(p => p.catalog?.distributor === 'PRH').length;
-    const value  = allPreorders.reduce((s, p) => s + (parseFloat(p.catalog?.price_usd) || 0), 0);
+    const lunar  = allPreorders.filter(p => p.catalog?.distributor === 'Lunar').reduce((s,p) => s+(p.quantity||1), 0);
+    const prh    = allPreorders.filter(p => p.catalog?.distributor === 'PRH').reduce((s,p) => s+(p.quantity||1), 0);
+    const value  = allPreorders.reduce((s, p) => s + ((parseFloat(p.catalog?.price_usd) || 0) * (p.quantity||1)), 0);
 
-    document.getElementById('stat-total').textContent     = allPreorders.length;
+    document.getElementById('stat-total').textContent     = allPreorders.reduce((s,p) => s+(p.quantity||1), 0);
     document.getElementById('stat-customers').textContent = customers;
     document.getElementById('stat-lunar').textContent     = lunar;
     document.getElementById('stat-prh').textContent       = prh;
@@ -227,10 +228,11 @@
       items.forEach(p => {
         const id = p.catalog?.id;
         if (!id) return;
-        if (!map[id]) map[id] = { catalog: p.catalog, customers: [] };
-        map[id].customers.push(p.customer_name);
+        if (!map[id]) map[id] = { catalog: p.catalog, customers: [], totalQty: 0 };
+        map[id].customers.push({ name: p.customer_name, qty: p.quantity || 1 });
+        map[id].totalQty += (p.quantity || 1);
       });
-      return Object.values(map).sort((a,b) => b.customers.length - a.customers.length);
+      return Object.values(map).sort((a,b) => b.totalQty - a.totalQty);
     }
 
     function renderDistTable(grouped) {
@@ -245,12 +247,12 @@
               <th>Code</th>
               <th>Price</th>
               <th>On Sale</th>
-              <th># Customers</th>
-              <th>Who</th>
+              <th>Total Qty</th>
+              <th>Customers</th>
             </tr>
           </thead>
           <tbody>
-            ${grouped.map(({ catalog: c, customers }) => `
+            ${grouped.map(({ catalog: c, customers, totalQty }) => `
               <tr>
                 <td class="td-cover">
                   ${c.cover_url
@@ -266,11 +268,11 @@
                 <td style="font-size:0.75rem;color:var(--text-muted);font-family:monospace">${escapeHtml(c.item_code || '—')}</td>
                 <td style="font-weight:600">${formatPrice(c.price_usd)}</td>
                 <td style="font-size:0.78rem;color:var(--text-muted)">${formatDate(c.on_sale_date)}</td>
-                <td style="font-family:var(--font-display);font-size:1.2rem;text-align:center">
-                  ${customers.length}
+                <td style="font-family:var(--font-display);font-size:1.4rem;text-align:center;color:var(--accent)">
+                  ${totalQty}
                 </td>
                 <td style="font-size:0.75rem;color:var(--text-muted)">
-                  ${customers.map(n => escapeHtml(n)).join(', ')}
+                  ${customers.map(c => escapeHtml(c.name) + (c.qty > 1 ? ' <span style="color:var(--accent)">(x'+c.qty+')</span>' : '')).join(', ')}
                 </td>
               </tr>
             `).join('')}
@@ -360,7 +362,8 @@
   // ── Exports ───────────────────────────────────────────────
   function makeExportRows(items) {
     return items.map(p => {
-      const c = p.catalog || {};
+      const c   = p.catalog || {};
+      const qty = p.quantity || 1;
       return {
         Customer:    p.customer_name,
         Distributor: c.distributor,
@@ -371,7 +374,9 @@
         Format:      c.format,
         IssueNumber: c.issue_number,
         VariantType: c.variant_type,
-        Price:       c.price_usd,
+        Quantity:    qty,
+        UnitPrice:   c.price_usd,
+        LineTotal:   ((parseFloat(c.price_usd)||0) * qty).toFixed(2),
         FOCDate:     c.foc_date,
         OnSaleDate:  c.on_sale_date,
         ReservedOn:  p.created_at?.split('T')[0],
