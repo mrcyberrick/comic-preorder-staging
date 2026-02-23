@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My List — Pull List</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav" id="main-nav">
+  <div class="container nav-inner">
+    <a href="catalog.html" class="nav-logo">PULL<span>LIST</span></a>
+    <ul class="nav-links">
+      <li><a href="catalog.html">Catalog</a></li>
+      <li><a href="mylist.html">My List</a></li>
+      <li id="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
+    </ul>
+    <div class="nav-user">
+      <span>Welcome, <strong id="nav-username"></strong></span>
+      <button class="btn-logout" id="btn-logout">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>My Pull List</h1>
+    <p>Your current reservations for this order cycle</p>
+  </div>
+
+  <!-- Summary -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="stat-count">—</div>
+      <div class="stat-label">Total Reserved</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--accent)" id="stat-total">—</div>
+      <div class="stat-label">Est. Total</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--lunar)" id="stat-lunar">—</div>
+      <div class="stat-label">Lunar Items</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--prh)" id="stat-prh">—</div>
+      <div class="stat-label">PRH Items</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" style="margin-bottom:16px">
+    <div class="search-wrap">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" class="search-input" id="search" placeholder="Filter your list…">
+    </div>
+    <select class="filter-select" id="filter-distributor">
+      <option value="">All Distributors</option>
+      <option value="Lunar">Lunar</option>
+      <option value="PRH">PRH</option>
+    </select>
+    <button class="btn btn-secondary btn-sm" id="btn-export">
+      ↓ Export CSV
+    </button>
+    <a href="catalog.html" class="btn btn-primary btn-sm">
+      + Add More
+    </a>
+  </div>
+
+  <!-- List Table -->
+  <div id="list-container">
+    <div class="empty-state">
+      <p style="color:var(--text-muted)">Loading your list…</p>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const navData = await initNav();
+  if (!navData) return;
+  const { user } = navData;
+
+  let allItems = [];
+
+  const searchEl = document.getElementById('search');
+  const distEl   = document.getElementById('filter-distributor');
+  const container = document.getElementById('list-container');
+
+  async function loadList() {
+    const { items, error } = await Preorders.getMy(user.id);
+    if (error) {
+      container.innerHTML = `<div class="alert alert-error">Failed to load your list: ${error.message}</div>`;
+      return;
+    }
+    allItems = items;
+    renderList();
+  }
+
+  function renderList() {
+    const search = searchEl.value.trim().toLowerCase();
+    const dist   = distEl.value;
+
+    let filtered = allItems.filter(item => {
+      const c = item.catalog;
+      if (!c) return false;
+      if (dist && c.distributor !== dist) return false;
+      if (search) {
+        const hay = [c.title, c.series_name, c.publisher, c.writer].join(' ').toLowerCase();
+        if (!hay.includes(search)) return false;
+      }
+      return true;
+    });
+
+    // Stats
+    document.getElementById('stat-count').textContent = allItems.length;
+    const total = allItems.reduce((sum, i) => sum + (parseFloat(i.catalog?.price_usd) || 0), 0);
+    document.getElementById('stat-total').textContent = `$${total.toFixed(2)}`;
+    document.getElementById('stat-lunar').textContent =
+      allItems.filter(i => i.catalog?.distributor === 'Lunar').length;
+    document.getElementById('stat-prh').textContent =
+      allItems.filter(i => i.catalog?.distributor === 'PRH').length;
+
+    if (!filtered.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+          <h3>${allItems.length ? 'No matches' : 'Your list is empty'}</h3>
+          <p>${allItems.length ? 'Try adjusting your filters' : 'Browse the catalog and reserve items to build your pull list'}</p>
+          ${!allItems.length ? '<a href="catalog.html" class="btn btn-primary" style="margin-top:16px">Browse Catalog</a>' : ''}
+        </div>`;
+      return;
+    }
+
+    // Sort by on_sale_date then title
+    filtered.sort((a, b) => {
+      const da = a.catalog?.on_sale_date || '';
+      const db = b.catalog?.on_sale_date || '';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+
+    container.innerHTML = `
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th class="td-cover"></th>
+            <th>Title</th>
+            <th>Publisher</th>
+            <th>Distributor</th>
+            <th>On Sale</th>
+            <th>Price</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(item => {
+            const c = item.catalog;
+            const cover = c.cover_url
+              ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(c.title)}">`
+              : `<div style="width:36px;height:54px;background:var(--bg-elevated);border-radius:2px"></div>`;
+            return `
+              <tr>
+                <td class="td-cover">${cover}</td>
+                <td>
+                  <div class="col-title">${escapeHtml(c.title)}</div>
+                  ${c.series_name ? `<div class="col-sub">${escapeHtml(c.series_name)}</div>` : ''}
+                  ${c.variant_type && c.variant_type !== 'Standard'
+                    ? `<div class="col-sub" style="color:var(--warning)">${escapeHtml(c.variant_type)}</div>` : ''}
+                </td>
+                <td style="color:var(--text-secondary)">${escapeHtml(c.publisher || '—')}</td>
+                <td>
+                  <span class="badge badge-${c.distributor.toLowerCase()}">${escapeHtml(c.distributor)}</span>
+                </td>
+                <td style="color:var(--text-muted); font-size:0.8rem">${formatDate(c.on_sale_date)}</td>
+                <td style="font-weight:600">${formatPrice(c.price_usd)}</td>
+                <td>
+                  <button class="btn btn-danger btn-sm cancel-btn" data-preorder-id="${item.id}" data-catalog-id="${c.id}">
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    // Cancel buttons
+    container.querySelectorAll('.cancel-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Remove this reservation?')) return;
+        btn.disabled = true;
+        const { error } = await Preorders.cancel(user.id, btn.dataset.catalogId);
+        if (error) {
+          toast('Failed to remove reservation', 'error');
+          btn.disabled = false;
+        } else {
+          allItems = allItems.filter(i => i.id !== btn.dataset.preorderId);
+          toast('Reservation removed');
+          renderList();
+        }
+      });
+    });
+  }
+
+  // Export
+  document.getElementById('btn-export').addEventListener('click', () => {
+    const rows = allItems.map(item => {
+      const c = item.catalog || {};
+      return {
+        Title:       c.title,
+        Series:      c.series_name,
+        Publisher:   c.publisher,
+        Distributor: c.distributor,
+        ItemCode:    c.item_code,
+        Format:      c.format,
+        IssueNumber: c.issue_number,
+        Price:       c.price_usd,
+        FOCDate:     c.foc_date,
+        OnSaleDate:  c.on_sale_date,
+        ReservedOn:  item.created_at?.split('T')[0],
+      };
+    });
+    exportToCsv(rows, `my-pull-list-${new Date().toISOString().split('T')[0]}.csv`);
+  });
+
+  searchEl.addEventListener('input', debounce(renderList, 250));
+  distEl.addEventListener('change', renderList);
+
+  await loadList();
+})();
+</script>
+</body>
+</html>

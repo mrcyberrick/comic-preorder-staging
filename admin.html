@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Pull List</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav" id="main-nav">
+  <div class="container nav-inner">
+    <a href="catalog.html" class="nav-logo">PULL<span>LIST</span></a>
+    <ul class="nav-links">
+      <li><a href="catalog.html">Catalog</a></li>
+      <li><a href="mylist.html">My List</a></li>
+      <li id="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
+    </ul>
+    <div class="nav-user">
+      <span>Welcome, <strong id="nav-username"></strong></span>
+      <button class="btn-logout" id="btn-logout">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Admin Dashboard</h1>
+    <p>All customer pre-orders for the current order cycle</p>
+  </div>
+
+  <!-- Summary Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total Reservations</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="stat-customers">—</div>
+      <div class="stat-label">Customers</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--lunar)" id="stat-lunar">—</div>
+      <div class="stat-label">Lunar Items</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--prh)" id="stat-prh">—</div>
+      <div class="stat-label">PRH Items</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--success)" id="stat-value">—</div>
+      <div class="stat-label">Est. Order Value</div>
+    </div>
+  </div>
+
+  <!-- Export Bar -->
+  <div class="export-bar">
+    <button class="btn btn-secondary btn-sm" id="btn-export-all">↓ Export All (CSV)</button>
+    <button class="btn btn-secondary btn-sm" id="btn-export-lunar">↓ Lunar Order Sheet</button>
+    <button class="btn btn-secondary btn-sm" id="btn-export-prh">↓ PRH Order Sheet</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" data-tab="by-customer">By Customer</button>
+    <button class="admin-tab" data-tab="by-distributor">By Distributor</button>
+    <button class="admin-tab" data-tab="all-items">All Reservations</button>
+  </div>
+
+  <!-- Tab: By Customer -->
+  <div class="admin-section active" id="tab-by-customer">
+    <div id="customer-groups">
+      <div class="empty-state"><p>Loading…</p></div>
+    </div>
+  </div>
+
+  <!-- Tab: By Distributor -->
+  <div class="admin-section" id="tab-by-distributor">
+    <div style="margin-bottom:24px">
+      <h3 style="font-family:var(--font-display);font-size:1.4rem;letter-spacing:0.04em;margin-bottom:16px;color:var(--lunar)">
+        LUNAR DISTRIBUTION
+      </h3>
+      <div id="lunar-list"></div>
+    </div>
+    <div>
+      <h3 style="font-family:var(--font-display);font-size:1.4rem;letter-spacing:0.04em;margin-bottom:16px;color:var(--prh)">
+        PRH / PENGUIN RANDOM HOUSE
+      </h3>
+      <div id="prh-list"></div>
+    </div>
+  </div>
+
+  <!-- Tab: All Reservations flat -->
+  <div class="admin-section" id="tab-all-items">
+    <div class="toolbar" style="margin-bottom:16px">
+      <div class="search-wrap">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input type="text" class="search-input" id="admin-search" placeholder="Search any field…">
+      </div>
+    </div>
+    <div id="all-items-list"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const navData = await Auth.requireAdmin();
+  if (!navData) return;
+  await initNav();
+
+  let allPreorders = [];
+
+  // ── Load Data ─────────────────────────────────────────────
+  // Admin query: fetch all preorders with user + catalog info
+  const { data, error } = await db
+    .from('preorders')
+    .select(`
+      id,
+      created_at,
+      user_id,
+      user_profiles ( full_name ),
+      catalog (
+        id, distributor, item_code, title, series_name, publisher,
+        issue_number, format, price_usd, foc_date, on_sale_date,
+        writer, artist, cover_url, variant_type
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    document.getElementById('customer-groups').innerHTML =
+      `<div class="alert alert-error">Failed to load: ${error.message}</div>`;
+    return;
+  }
+
+  // Also get all user emails
+  const { data: usersData } = await db
+    .from('user_profiles')
+    .select('id, full_name');
+  const profileMap = {};
+  (usersData || []).forEach(u => profileMap[u.id] = u);
+
+  allPreorders = (data || []).map(p => ({
+    ...p,
+    customer_name: p.user_profiles?.full_name || 'Unknown',
+  }));
+
+  renderStats();
+  renderByCustomer();
+  renderByDistributor();
+  renderAllItems();
+
+  // ── Stats ─────────────────────────────────────────────────
+  function renderStats() {
+    const customers = new Set(allPreorders.map(p => p.user_id)).size;
+    const lunar  = allPreorders.filter(p => p.catalog?.distributor === 'Lunar').length;
+    const prh    = allPreorders.filter(p => p.catalog?.distributor === 'PRH').length;
+    const value  = allPreorders.reduce((s, p) => s + (parseFloat(p.catalog?.price_usd) || 0), 0);
+
+    document.getElementById('stat-total').textContent     = allPreorders.length;
+    document.getElementById('stat-customers').textContent = customers;
+    document.getElementById('stat-lunar').textContent     = lunar;
+    document.getElementById('stat-prh').textContent       = prh;
+    document.getElementById('stat-value').textContent     = `$${value.toFixed(2)}`;
+  }
+
+  // ── By Customer ───────────────────────────────────────────
+  function renderByCustomer() {
+    const grouped = {};
+    allPreorders.forEach(p => {
+      const key = p.customer_name;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(p);
+    });
+
+    const container = document.getElementById('customer-groups');
+    if (!Object.keys(grouped).length) {
+      container.innerHTML = `<div class="empty-state"><h3>No reservations yet</h3></div>`;
+      return;
+    }
+
+    container.innerHTML = Object.entries(grouped)
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([name, items]) => {
+        const total = items.reduce((s, p) => s + (parseFloat(p.catalog?.price_usd) || 0), 0);
+        const lunarCount = items.filter(p => p.catalog?.distributor === 'Lunar').length;
+        const prhCount   = items.filter(p => p.catalog?.distributor === 'PRH').length;
+        return `
+          <div class="customer-group">
+            <div class="customer-group-header">
+              <div>
+                <div class="customer-group-name">${escapeHtml(name)}</div>
+                <div class="customer-group-meta">${items.length} items · Est. $${total.toFixed(2)} · Lunar: ${lunarCount} · PRH: ${prhCount}</div>
+              </div>
+              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="m6 9 6 6 6-6"/>
+              </svg>
+            </div>
+            <div class="customer-group-body">
+              ${renderMiniTable(items)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    // Collapsible
+    container.querySelectorAll('.customer-group-header').forEach(header => {
+      header.addEventListener('click', () => {
+        header.closest('.customer-group').classList.toggle('open');
+      });
+    });
+  }
+
+  // ── By Distributor ────────────────────────────────────────
+  function renderByDistributor() {
+    const lunar = allPreorders.filter(p => p.catalog?.distributor === 'Lunar');
+    const prh   = allPreorders.filter(p => p.catalog?.distributor === 'PRH');
+
+    // Group by item, count how many customers want it
+    function groupByItem(items) {
+      const map = {};
+      items.forEach(p => {
+        const id = p.catalog?.id;
+        if (!id) return;
+        if (!map[id]) map[id] = { catalog: p.catalog, customers: [] };
+        map[id].customers.push(p.customer_name);
+      });
+      return Object.values(map).sort((a,b) => b.customers.length - a.customers.length);
+    }
+
+    function renderDistTable(grouped) {
+      if (!grouped.length) return `<div class="empty-state"><p>No reservations</p></div>`;
+      return `
+        <table class="list-table">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Title</th>
+              <th>Publisher</th>
+              <th>Code</th>
+              <th>Price</th>
+              <th>On Sale</th>
+              <th># Customers</th>
+              <th>Who</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${grouped.map(({ catalog: c, customers }) => `
+              <tr>
+                <td class="td-cover">
+                  ${c.cover_url
+                    ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(c.title)}">`
+                    : `<div style="width:36px;height:54px;background:var(--bg-elevated);border-radius:2px"></div>`}
+                </td>
+                <td>
+                  <div class="col-title">${escapeHtml(c.title)}</div>
+                  ${c.variant_type && c.variant_type !== 'Standard'
+                    ? `<div class="col-sub" style="color:var(--warning)">${escapeHtml(c.variant_type)}</div>` : ''}
+                </td>
+                <td style="color:var(--text-secondary)">${escapeHtml(c.publisher || '—')}</td>
+                <td style="font-size:0.75rem;color:var(--text-muted);font-family:monospace">${escapeHtml(c.item_code || '—')}</td>
+                <td style="font-weight:600">${formatPrice(c.price_usd)}</td>
+                <td style="font-size:0.78rem;color:var(--text-muted)">${formatDate(c.on_sale_date)}</td>
+                <td style="font-family:var(--font-display);font-size:1.2rem;text-align:center">
+                  ${customers.length}
+                </td>
+                <td style="font-size:0.75rem;color:var(--text-muted)">
+                  ${customers.map(n => escapeHtml(n)).join(', ')}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('lunar-list').innerHTML = renderDistTable(groupByItem(lunar));
+    document.getElementById('prh-list').innerHTML   = renderDistTable(groupByItem(prh));
+  }
+
+  // ── All Items (flat) ──────────────────────────────────────
+  function renderAllItems(search = '') {
+    const lc = search.toLowerCase();
+    const filtered = search
+      ? allPreorders.filter(p => {
+          const c = p.catalog || {};
+          return [p.customer_name, c.title, c.series_name, c.publisher, c.item_code]
+            .join(' ').toLowerCase().includes(lc);
+        })
+      : allPreorders;
+
+    document.getElementById('all-items-list').innerHTML =
+      filtered.length
+        ? renderMiniTable(filtered, true)
+        : `<div class="empty-state"><p>No matches</p></div>`;
+  }
+
+  function renderMiniTable(items, showCustomer = false) {
+    return `
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th></th>
+            ${showCustomer ? '<th>Customer</th>' : ''}
+            <th>Title</th>
+            <th>Publisher</th>
+            <th>Distributor</th>
+            <th>Code</th>
+            <th>Price</th>
+            <th>On Sale</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(p => {
+            const c = p.catalog || {};
+            return `
+              <tr>
+                <td class="td-cover">
+                  ${c.cover_url
+                    ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(c.title || '')}">`
+                    : `<div style="width:36px;height:54px;background:var(--bg-elevated);border-radius:2px"></div>`}
+                </td>
+                ${showCustomer ? `<td style="font-weight:500">${escapeHtml(p.customer_name)}</td>` : ''}
+                <td>
+                  <div class="col-title">${escapeHtml(c.title || '—')}</div>
+                  ${c.series_name ? `<div class="col-sub">${escapeHtml(c.series_name)}</div>` : ''}
+                </td>
+                <td style="color:var(--text-secondary)">${escapeHtml(c.publisher || '—')}</td>
+                <td><span class="badge badge-${(c.distributor||'').toLowerCase()}">${escapeHtml(c.distributor || '—')}</span></td>
+                <td style="font-size:0.72rem;color:var(--text-muted);font-family:monospace">${escapeHtml(c.item_code || '—')}</td>
+                <td style="font-weight:600">${formatPrice(c.price_usd)}</td>
+                <td style="font-size:0.78rem;color:var(--text-muted)">${formatDate(c.on_sale_date)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────
+  document.querySelectorAll('.admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
+    });
+  });
+
+  // ── Search (all items tab) ────────────────────────────────
+  document.getElementById('admin-search').addEventListener('input',
+    debounce(e => renderAllItems(e.target.value.trim()), 250));
+
+  // ── Exports ───────────────────────────────────────────────
+  function makeExportRows(items) {
+    return items.map(p => {
+      const c = p.catalog || {};
+      return {
+        Customer:    p.customer_name,
+        Distributor: c.distributor,
+        ItemCode:    c.item_code,
+        Title:       c.title,
+        Series:      c.series_name,
+        Publisher:   c.publisher,
+        Format:      c.format,
+        IssueNumber: c.issue_number,
+        VariantType: c.variant_type,
+        Price:       c.price_usd,
+        FOCDate:     c.foc_date,
+        OnSaleDate:  c.on_sale_date,
+        ReservedOn:  p.created_at?.split('T')[0],
+      };
+    });
+  }
+
+  document.getElementById('btn-export-all').addEventListener('click', () => {
+    exportToCsv(makeExportRows(allPreorders), `all-preorders-${new Date().toISOString().split('T')[0]}.csv`);
+  });
+  document.getElementById('btn-export-lunar').addEventListener('click', () => {
+    const lunar = allPreorders.filter(p => p.catalog?.distributor === 'Lunar');
+    exportToCsv(makeExportRows(lunar), `lunar-orders-${new Date().toISOString().split('T')[0]}.csv`);
+  });
+  document.getElementById('btn-export-prh').addEventListener('click', () => {
+    const prh = allPreorders.filter(p => p.catalog?.distributor === 'PRH');
+    exportToCsv(makeExportRows(prh), `prh-orders-${new Date().toISOString().split('T')[0]}.csv`);
+  });
+
+})();
+</script>
+</body>
+</html>

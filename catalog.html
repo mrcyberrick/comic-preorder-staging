@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catalog — Pull List</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav" id="main-nav">
+  <div class="container nav-inner">
+    <a href="catalog.html" class="nav-logo">PULL<span>LIST</span></a>
+    <ul class="nav-links">
+      <li><a href="catalog.html">Catalog</a></li>
+      <li><a href="mylist.html">My List</a></li>
+      <li id="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
+    </ul>
+    <div class="nav-user">
+      <span>Welcome, <strong id="nav-username"></strong></span>
+      <button class="btn-logout" id="btn-logout">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Page Header -->
+<div class="container">
+  <div class="page-header">
+    <h1>Monthly Catalog</h1>
+    <p id="catalog-subtitle">Browse and reserve items from the current order cycle</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total Items</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--lunar)" id="stat-lunar">—</div>
+      <div class="stat-label">Lunar</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--prh)" id="stat-prh">—</div>
+      <div class="stat-label">PRH</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--accent)" id="stat-reserved">—</div>
+      <div class="stat-label">My Reservations</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" class="search-input" id="search" placeholder="Search titles, series, writers…">
+    </div>
+    <select class="filter-select" id="filter-distributor">
+      <option value="">All Distributors</option>
+      <option value="Lunar">Lunar</option>
+      <option value="PRH">PRH</option>
+    </select>
+    <select class="filter-select" id="filter-publisher">
+      <option value="">All Publishers</option>
+    </select>
+    <select class="filter-select" id="filter-reserved">
+      <option value="">All Items</option>
+      <option value="reserved">Reserved Only</option>
+      <option value="unreserved">Not Yet Reserved</option>
+    </select>
+  </div>
+
+  <!-- Results count -->
+  <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px" id="results-count"></div>
+
+  <!-- Catalog Grid -->
+  <div id="catalog-grid" class="catalog-grid"></div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination" style="display:none"></div>
+</div>
+
+<!-- Comic Detail Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-cover">
+        <img id="modal-cover-img" src="" alt="">
+      </div>
+      <div class="modal-title-block">
+        <h2 id="modal-title"></h2>
+        <div class="modal-series" id="modal-series"></div>
+        <div class="modal-badges" id="modal-badges"></div>
+        <div class="modal-price-row">
+          <span class="modal-price" id="modal-price"></span>
+          <span class="modal-dates" id="modal-dates"></span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-credits" id="modal-credits"></div>
+      <h3>Description</h3>
+      <p id="modal-description"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="modal-close">Close</button>
+      <button class="btn btn-primary" id="modal-reserve">Reserve</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const navData = await initNav();
+  if (!navData) return;
+  const { user } = navData;
+
+  const PAGE_SIZE = 48;
+  let currentPage = 1;
+  let currentMonth = null;
+  let reservedIds = new Set();
+  let allItems = [];
+  let totalCount = 0;
+  let modalComicId = null;
+
+  // ── Elements ──────────────────────────────────────────────
+  const grid        = document.getElementById('catalog-grid');
+  const searchEl    = document.getElementById('search');
+  const distEl      = document.getElementById('filter-distributor');
+  const pubEl       = document.getElementById('filter-publisher');
+  const resEl       = document.getElementById('filter-reserved');
+  const countEl     = document.getElementById('results-count');
+  const paginEl     = document.getElementById('pagination');
+  const overlay     = document.getElementById('modal-overlay');
+
+  // ── Init ──────────────────────────────────────────────────
+  currentMonth = await Catalog.getLatestMonth();
+  if (currentMonth) {
+    document.getElementById('catalog-subtitle').textContent =
+      `Catalog for ${currentMonth} — browse and reserve items`;
+  }
+
+  reservedIds = await Preorders.getMyIds(user.id);
+  document.getElementById('stat-reserved').textContent = reservedIds.size;
+
+  // Load publishers for filter
+  if (currentMonth) {
+    const publishers = await Catalog.getPublishers(currentMonth);
+    publishers.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      opt.textContent = p;
+      pubEl.appendChild(opt);
+    });
+  }
+
+  await loadCatalog();
+
+  // ── Load + Render ─────────────────────────────────────────
+  async function loadCatalog(page = 1) {
+    renderSkeletons(12, grid);
+    currentPage = page;
+
+    const filters = {
+      month:       currentMonth,
+      distributor: distEl.value,
+      publisher:   pubEl.value,
+      search:      searchEl.value.trim(),
+      page,
+      pageSize:    PAGE_SIZE,
+    };
+
+    const { items, total, error } = await Catalog.fetch(filters);
+
+    if (error) {
+      grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${error.message}</div>`;
+      return;
+    }
+
+    allItems   = items;
+    totalCount = total;
+
+    // Apply client-side reserved filter
+    let displayed = items;
+    if (resEl.value === 'reserved')   displayed = items.filter(i => reservedIds.has(i.id));
+    if (resEl.value === 'unreserved') displayed = items.filter(i => !reservedIds.has(i.id));
+
+    // Stats
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-lunar').textContent =
+      items.filter(i => i.distributor === 'Lunar').length;
+    document.getElementById('stat-prh').textContent =
+      items.filter(i => i.distributor === 'PRH').length;
+
+    countEl.textContent = `Showing ${displayed.length} of ${total} items`;
+
+    if (!displayed.length) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1">
+          <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H9l4-8v4h2l-4 8z"/>
+          </svg>
+          <h3>No items found</h3>
+          <p>Try adjusting your search or filters</p>
+        </div>`;
+      paginEl.style.display = 'none';
+      return;
+    }
+
+    grid.innerHTML = displayed.map(c => buildComicCard(c, reservedIds.has(c.id))).join('');
+    renderPagination(total, page);
+
+    // Card click → modal
+    grid.querySelectorAll('.comic-cover, .comic-info').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.closest('.comic-card').dataset.id;
+        openModal(id);
+      });
+    });
+
+    // Reserve button
+    grid.querySelectorAll('.btn-reserve').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleReserve(btn.dataset.id, btn);
+      });
+    });
+  }
+
+  // ── Pagination ────────────────────────────────────────────
+  function renderPagination(total, page) {
+    const pages = Math.ceil(total / PAGE_SIZE);
+    if (pages <= 1) { paginEl.style.display = 'none'; return; }
+    paginEl.style.display = 'flex';
+
+    let html = `<button class="page-btn" ${page===1?'disabled':''} data-page="${page-1}">‹</button>`;
+    for (let i = 1; i <= pages; i++) {
+      if (pages > 7 && i > 2 && i < pages - 1 && Math.abs(i - page) > 1) {
+        if (i === 3 || i === pages - 2) html += `<span class="page-info">…</span>`;
+        continue;
+      }
+      html += `<button class="page-btn ${i===page?'active':''}" data-page="${i}">${i}</button>`;
+    }
+    html += `<button class="page-btn" ${page===pages?'disabled':''} data-page="${page+1}">›</button>`;
+    paginEl.innerHTML = html;
+
+    paginEl.querySelectorAll('.page-btn:not(:disabled)').forEach(btn => {
+      btn.addEventListener('click', () => {
+        loadCatalog(parseInt(btn.dataset.page));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+  }
+
+  // ── Reserve Toggle ────────────────────────────────────────
+  async function toggleReserve(catalogId, btn) {
+    const isReserved = reservedIds.has(catalogId);
+    btn.disabled = true;
+
+    if (isReserved) {
+      const { error } = await Preorders.cancel(user.id, catalogId);
+      if (error) { toast('Failed to cancel reservation', 'error'); }
+      else {
+        reservedIds.delete(catalogId);
+        btn.textContent = '+ Reserve';
+        btn.classList.remove('reserved');
+        // Remove badge on card
+        const badge = btn.closest('.comic-card').querySelector('.reserved-indicator');
+        if (badge) badge.remove();
+        toast('Reservation cancelled');
+        updateReservedStat();
+      }
+    } else {
+      const { error } = await Preorders.reserve(user.id, catalogId);
+      if (error) {
+        toast(error.code === '23505' ? 'Already reserved' : 'Failed to reserve', 'error');
+      } else {
+        reservedIds.add(catalogId);
+        btn.textContent = '✓ Reserved';
+        btn.classList.add('reserved');
+        // Add badge
+        const cover = btn.closest('.comic-card').querySelector('.comic-cover');
+        if (!cover.querySelector('.reserved-indicator')) {
+          const badge = document.createElement('div');
+          badge.className = 'reserved-indicator';
+          badge.textContent = 'Reserved';
+          cover.appendChild(badge);
+        }
+        toast('Reserved!');
+        updateReservedStat();
+      }
+    }
+
+    btn.disabled = false;
+
+    // Sync modal if open
+    if (modalComicId === catalogId) {
+      const modalBtn = document.getElementById('modal-reserve');
+      if (modalBtn) {
+        modalBtn.textContent = reservedIds.has(catalogId) ? '✓ Cancel Reservation' : '+ Reserve';
+      }
+    }
+  }
+
+  function updateReservedStat() {
+    document.getElementById('stat-reserved').textContent = reservedIds.size;
+  }
+
+  // ── Modal ─────────────────────────────────────────────────
+  function openModal(catalogId) {
+    const comic = allItems.find(c => c.id === catalogId);
+    if (!comic) return;
+    modalComicId = catalogId;
+
+    const isReserved = reservedIds.has(catalogId);
+    const coverImg = document.getElementById('modal-cover-img');
+    if (comic.cover_url) {
+      coverImg.src = comic.cover_url;
+      coverImg.alt = comic.title;
+      coverImg.parentElement.style.display = '';
+    } else {
+      coverImg.parentElement.style.display = 'none';
+    }
+
+    document.getElementById('modal-title').textContent   = comic.title || '';
+    document.getElementById('modal-series').textContent  =
+      [comic.series_name, comic.publisher].filter(Boolean).join(' · ');
+    document.getElementById('modal-price').textContent   = formatPrice(comic.price_usd);
+    document.getElementById('modal-description').textContent = comic.description || 'No description available.';
+
+    const dates = [];
+    if (comic.foc_date)     dates.push(`FOC: ${formatDate(comic.foc_date)}`);
+    if (comic.on_sale_date) dates.push(`On Sale: ${formatDate(comic.on_sale_date)}`);
+    document.getElementById('modal-dates').textContent = dates.join('  ·  ');
+
+    // Badges
+    const badgesEl = document.getElementById('modal-badges');
+    badgesEl.innerHTML = [
+      comic.distributor ? `<span class="badge badge-${comic.distributor.toLowerCase()}">${comic.distributor}</span>` : '',
+      comic.format      ? `<span class="badge badge-format">${escapeHtml(comic.format)}</span>` : '',
+      comic.variant_type && comic.variant_type !== 'Standard'
+        ? `<span class="badge badge-variant">${escapeHtml(comic.variant_type)}</span>` : '',
+    ].join('');
+
+    // Credits
+    const credits = [
+      ['Writer',       comic.writer],
+      ['Artist',       comic.artist],
+      ['Cover Artist', comic.cover_artist],
+    ].filter(([,v]) => v);
+    document.getElementById('modal-credits').innerHTML = credits.map(([label, val]) => `
+      <div class="modal-credit-item">
+        <label>${label}</label>
+        <span>${escapeHtml(val)}</span>
+      </div>
+    `).join('');
+
+    const reserveBtn = document.getElementById('modal-reserve');
+    reserveBtn.textContent = isReserved ? '✓ Cancel Reservation' : '+ Reserve';
+    reserveBtn.onclick = () => {
+      const cardBtn = grid.querySelector(`.btn-reserve[data-id="${catalogId}"]`);
+      toggleReserve(catalogId, reserveBtn);
+      if (cardBtn) {
+        // Sync card
+        setTimeout(() => {
+          const nowReserved = reservedIds.has(catalogId);
+          cardBtn.textContent = nowReserved ? '✓ Reserved' : '+ Reserve';
+          cardBtn.classList.toggle('reserved', nowReserved);
+        }, 300);
+      }
+    };
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+    modalComicId = null;
+  }
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // ── Filter Events ─────────────────────────────────────────
+  const debouncedLoad = debounce(() => loadCatalog(1), 350);
+  searchEl.addEventListener('input', debouncedLoad);
+  distEl.addEventListener('change', () => loadCatalog(1));
+  pubEl.addEventListener('change', () => loadCatalog(1));
+  resEl.addEventListener('change', () => loadCatalog(1));
+
+})();
+</script>
+</body>
+</html>
