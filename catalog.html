@@ -125,7 +125,7 @@
 (async () => {
   const navData = await initNav();
   if (!navData) return;
-  const { user } = navData;
+  const { user, profile } = navData;
 
   const PAGE_SIZE = 48;
   let currentPage = 1;
