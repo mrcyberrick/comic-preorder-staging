@@ -5,8 +5,8 @@
 // Project Settings → API
 // ================================================================
 
-const SUPABASE_URL      = 'https://plgegklqtdjxeglvyjte.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_ShA2TQAvsnJEizW9F7RP6w_HQ5eiVM3';
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 // ── Supabase Client (CDN version, no npm needed) ─────────────
 const { createClient } = supabase;
@@ -92,7 +92,13 @@ async function initNav() {
 
   // Logout button
   const logoutBtn = nav.querySelector('#btn-logout');
-  if (logoutBtn) logoutBtn.addEventListener('click', () => Auth.signOut());
+  if (logoutBtn) logoutBtn.addEventListener('click', () => {
+    AdminContext.clear(); // clear impersonation on sign out
+    Auth.signOut();
+  });
+
+  // Restore admin banner on every page load if context is active
+  if (profile?.is_admin) AdminContext.restore();
 
   return { user, profile };
 }
@@ -149,19 +155,21 @@ const Catalog = {
 };
 
 // ── Admin Impersonation State ────────────────────────────────
+// Persisted in sessionStorage so it survives page navigation
+// but clears automatically when the browser tab is closed.
 const AdminContext = {
-  activeUserId:   null,
-  activeUserName: null,
+  get activeUserId()   { return sessionStorage.getItem('admin_ctx_id')   || null; },
+  get activeUserName() { return sessionStorage.getItem('admin_ctx_name') || null; },
 
   set(userId, userName) {
-    this.activeUserId   = userId;
-    this.activeUserName = userName;
+    sessionStorage.setItem('admin_ctx_id',   userId);
+    sessionStorage.setItem('admin_ctx_name', userName);
     this.updateBanner();
   },
 
   clear() {
-    this.activeUserId   = null;
-    this.activeUserName = null;
+    sessionStorage.removeItem('admin_ctx_id');
+    sessionStorage.removeItem('admin_ctx_name');
     this.updateBanner();
   },
 
@@ -169,6 +177,11 @@ const AdminContext = {
 
   resolveUserId(ownUserId) {
     return this.activeUserId || ownUserId;
+  },
+
+  // Call this on every page load to restore banner if context is active
+  restore() {
+    if (this.isActive()) this.updateBanner();
   },
 
   updateBanner() {
