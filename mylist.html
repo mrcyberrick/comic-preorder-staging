@@ -86,7 +86,7 @@
 (async () => {
   const navData = await initNav();
   if (!navData) return;
-  const { user } = navData;
+  const { user, profile } = navData;
 
   let allItems = [];
 
@@ -95,7 +95,13 @@
   const container = document.getElementById('list-container');
 
   async function loadList() {
-    const { items, error } = await Preorders.getMy(user.id);
+    const targetUserId = AdminContext.resolveUserId(user.id);
+    // Update page title if managing a customer
+    if (AdminContext.isActive()) {
+      document.querySelector('.page-header h1').textContent = AdminContext.activeUserName + "'s Pull List";
+      document.querySelector('.page-header p').textContent = 'Managing reservations on behalf of this customer';
+    }
+    const { items, error } = await Preorders.getMy(targetUserId);
     if (error) {
       container.innerHTML = `<div class="alert alert-error">Failed to load your list: ${error.message}</div>`;
       return;
@@ -199,7 +205,7 @@
       btn.addEventListener('click', async () => {
         if (!confirm('Remove this reservation?')) return;
         btn.disabled = true;
-        const { error } = await Preorders.cancel(user.id, btn.dataset.catalogId);
+        const { error } = await Preorders.cancel(AdminContext.resolveUserId(user.id), btn.dataset.catalogId);
         if (error) {
           toast('Failed to remove reservation', 'error');
           btn.disabled = false;
