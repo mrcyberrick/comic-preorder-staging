@@ -139,18 +139,24 @@ const Catalog = {
   },
 
   async getPublishers(month) {
-    const { data } = await db
-      .from('catalog')
-      .select('publisher')
-      .eq('catalog_month', month)
-      .order('publisher');
-    // Deduplicate
+    // Fetch in two batches to get all publishers across both distributors
+    // Supabase default page limit is 1000, catalog has ~1900 rows
+    const [batch1, batch2] = await Promise.all([
+      db.from('catalog').select('publisher').eq('catalog_month', month)
+        .not('publisher', 'is', null).order('publisher').range(0, 999),
+      db.from('catalog').select('publisher').eq('catalog_month', month)
+        .not('publisher', 'is', null).order('publisher').range(1000, 1999),
+    ]);
+    const allRows = [...(batch1.data || []), ...(batch2.data || [])];
     const seen = new Set();
-    return (data || []).filter(r => {
-      if (!r.publisher || seen.has(r.publisher)) return false;
-      seen.add(r.publisher);
-      return true;
-    }).map(r => r.publisher);
+    return allRows
+      .map(r => r.publisher?.trim())
+      .filter(p => {
+        if (!p || seen.has(p)) return false;
+        seen.add(p);
+        return true;
+      })
+      .sort((a, b) => a.localeCompare(b));
   },
 };
 
@@ -215,6 +221,63 @@ const AdminContext = {
     }
   }
 };
+
+// ── App Settings API ─────────────────────────────────────────
+const Settings = {
+  async get(key) {
+    const { data } = await db
+      .from('app_settings')
+      .select('value')
+      .eq('key', key)
+      .single();
+    return data?.value ?? null;
+  },
+
+  async set(key, value) {
+    const { error } = await db
+      .from('app_settings')
+      .upsert({ key, value, updated_at: new Date().toISOString() });
+    return { error };
+  },
+
+  async isMaintenanceMode() {
+    const val = await this.get('maintenance_mode');
+    return val === 'true';
+  },
+
+  async setMaintenanceMode(on) {
+    return await this.set('maintenance_mode', on ? 'true' : 'false');
+  },
+};
+
+// Check maintenance mode — redirect non-admins to a holding page
+async function checkMaintenanceMode(isAdmin) {
+  if (isAdmin) return; // admins always get through
+  const maint = await Settings.isMaintenanceMode();
+  if (maint) {
+    // Show fullscreen maintenance overlay
+    document.body.innerHTML = `
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;
+                  background:var(--bg);font-family:var(--font-body);">
+        <div style="text-align:center;padding:40px;max-width:420px">
+          <div style="font-family:var(--font-display);font-size:3rem;
+                      letter-spacing:0.05em;margin-bottom:8px">
+            PULL<span style="color:var(--accent)">LIST</span>
+          </div>
+          <div style="font-size:1.6rem;font-weight:600;margin:24px 0 12px;
+                      color:var(--text-primary)">Catalog Update In Progress</div>
+          <p style="color:var(--text-secondary);line-height:1.7;margin-bottom:28px">
+            We're updating the monthly catalog right now.<br>
+            The site will be back shortly — please check again in a few minutes.
+          </p>
+          <div style="font-size:0.78rem;color:var(--text-muted)">
+            Questions? Contact the shop directly.
+          </div>
+        </div>
+      </div>`;
+    throw new Error('maintenance'); // stop page init
+  }
+}
 
 // ── Pre-order API ─────────────────────────────────────────────
 const Preorders = {
