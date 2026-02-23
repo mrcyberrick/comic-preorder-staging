@@ -492,7 +492,15 @@ button { cursor: pointer; font-family: var(--font-body); }
   background: var(--bg-elevated);
   aspect-ratio: 2/3;
 }
-.modal-cover img { width: 100%; height: 100%; object-fit: cover; }
+.modal-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.modal-cover img.loaded { opacity: 1; }
+.modal-cover img[src^="data:image"] { opacity: 1; }
 .modal-title-block { flex: 1; }
 .modal-title-block h2 {
   font-size: 1.1rem;
