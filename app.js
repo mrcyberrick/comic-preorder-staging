@@ -5,8 +5,8 @@
 // Project Settings → API
 // ================================================================
 
-const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL      = 'https://plgegklqtdjxeglvyjte.supabase.co';
+const SUPABASE_ANON_KEY = 'Ysb_publishable_ShA2TQAvsnJEizW9F7RP6w_HQ5eiVM3';
 
 // ── Supabase Client (CDN version, no npm needed) ─────────────
 const { createClient } = supabase;
