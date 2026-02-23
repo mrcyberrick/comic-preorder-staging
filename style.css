@@ -303,8 +303,8 @@ button { cursor: pointer; font-family: var(--font-body); }
 /* ── Catalog Grid ──────────────────────────────────────────── */
 .catalog-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
 }
 .comic-card {
   background: var(--bg-card);
@@ -373,14 +373,14 @@ button { cursor: pointer; font-family: var(--font-body); }
   border-radius: 2px;
 }
 .comic-info {
-  padding: 8px;
+  padding: 12px;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
 }
 .comic-title {
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 600;
   line-height: 1.3;
   color: var(--text-primary);
@@ -390,7 +390,7 @@ button { cursor: pointer; font-family: var(--font-body); }
   overflow: hidden;
 }
 .comic-series {
-  font-size: 0.68rem;
+  font-size: 0.73rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -411,17 +411,17 @@ button { cursor: pointer; font-family: var(--font-body); }
   font-size: 0.7rem;
   color: var(--text-muted);
 }
-.comic-actions { padding: 0 8px 8px; }
+.comic-actions { padding: 0 12px 12px; }
 .btn-reserve {
   width: 100%;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  padding: 5px;
+  padding: 7px;
   border-radius: var(--radius);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   transition: var(--transition);
 }
 .btn-reserve:hover {
@@ -775,7 +775,7 @@ button { cursor: pointer; font-family: var(--font-body); }
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+  .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
   .modal-header { flex-direction: column; }
   .modal-cover { width: 80px; }
   .stats-bar { gap: 16px; }
