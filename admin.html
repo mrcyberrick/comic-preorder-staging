@@ -512,33 +512,38 @@
     inviteResult.style.display = 'none';
 
     try {
-      // Get current session token
-      const { data: sessionData, error: sessionErr } = await db.auth.getSession();
-      if (sessionErr || !sessionData?.session?.access_token) {
-        throw new Error('Session expired — please sign out and back in');
-      }
-      const token = sessionData.session.access_token;
+      // Store the pending invite — trigger will auto-create profile
+      // when customer accepts the invite and their account is confirmed
+      const { error: rpcError } = await db.rpc('create_customer_profile', {
+        customer_email: email,
+        customer_name:  name,
+      });
 
-      // Call the Edge Function which uses service_role to invite + create profile
-      const resp = await fetch(
-        `${SUPABASE_URL}/functions/v1/invite-customer`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-            'apikey': SUPABASE_ANON_KEY,
-          },
-          body: JSON.stringify({ name, email }),
+      if (rpcError) throw new Error(rpcError.message);
+
+      // Send invite via Supabase Auth invite endpoint using legacy JWT key
+      const inviteResp = await fetch(`${SUPABASE_URL}/auth/v1/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'apikey':        SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          email,
+          data: { full_name: name },
+          redirect_to: 'https://mrcyberrick.github.io/comic-preorder/index.html',
+        }),
+      });
+
+      const result = await inviteResp.json();
+
+      if (!inviteResp.ok) {
+        const msg = (result?.msg || result?.message || '').toLowerCase();
+        if (msg.includes('already')) {
+          throw new Error('A user with this email already exists');
         }
-      );
-
-      let result;
-      try { result = await resp.json(); }
-      catch { result = { error: `HTTP ${resp.status}` }; }
-
-      if (!resp.ok) {
-        throw new Error(result.error || `HTTP ${resp.status}`);
+        throw new Error(result?.msg || result?.message || `HTTP ${inviteResp.status}`);
       }
 
       // Success
