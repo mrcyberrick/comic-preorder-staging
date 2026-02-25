@@ -236,23 +236,23 @@
     const color  = colors[passed - 1] || '#ef4444';
     const label  = labels[passed - 1] || '';
 
-    container.innerHTML = \`
+    container.innerHTML = `
       <div style="margin-top:6px">
         <div style="display:flex;gap:3px;margin-bottom:4px">
-          \${rules.map((r,i) => \`
+          ${rules.map((r,i) => `
             <div style="flex:1;height:3px;border-radius:2px;
-                 background:\${r.re.test(pwd) ? color : 'var(--border)'};
+                 background:${r.re.test(pwd) ? color : 'var(--border)'};
                  transition:background 0.2s"></div>
-          \`).join('')}
+          `).join('')}
         </div>
-        <div style="font-size:0.72rem;color:\${color};\${passed===4?'':'opacity:0.8'}">\${label}</div>
-        \${rules.filter(r => !r.re.test(pwd)).map(r => \`
+        <div style="font-size:0.72rem;color:${color};${passed===4?'':'opacity:0.8'}">${label}</div>
+        ${rules.filter(r => !r.re.test(pwd)).map(r => `
           <div style="font-size:0.71rem;color:var(--text-muted);margin-top:2px">
-            ✗ \${r.label}
+            ✗ ${r.label}
           </div>
-        \`).join('')}
+        `).join('')}
       </div>
-    \`;
+    `;
   }
 
   // ── Set Password handler ───────────────────────────────────
