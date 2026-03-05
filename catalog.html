@@ -235,19 +235,32 @@
     // ── FIX: When filtering by reserved/unreserved, we must fetch ALL matching
     // items across the full catalog — not just the current page — because
     // reservedIds is a client-side Set and pagination would hide results on
-    // other pages. We bypass server-side paging in this case and paginate
-    // the filtered result set ourselves.
+    // other pages. We bypass server-side paging and fetch in two batches of
+    // 1000 (Supabase silently caps any single request at 1000 rows, so a
+    // single pageSize:2000 call only ever returns the first 1000 items,
+    // which meant PRH items — sorted after Lunar — were always missing).
     if (reserveFilter === 'reserved' || reserveFilter === 'unreserved') {
-      const filters = {
-        month:       currentMonth,
-        distributor: distEl.value,
-        publisher:   pubEl.value,
-        search:      searchEl.value.trim(),
-        page:        1,
-        pageSize:    2000, // fetch all; catalog is ~1900 items per month
+      const buildQuery = (from, to) => {
+        let q = db.from('catalog').select('*', { count: 'exact' });
+        if (currentMonth)    q = q.eq('catalog_month', currentMonth);
+        if (distEl.value)    q = q.eq('distributor', distEl.value);
+        if (pubEl.value)     q = q.eq('publisher', pubEl.value);
+        const s = searchEl.value.trim();
+        if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%`);
+        return q.order('publisher', { ascending: true })
+                .order('series_name', { ascending: true })
+                .order('title', { ascending: true })
+                .range(from, to);
       };
 
-      const { items, total, error } = await Catalog.fetch(filters);
+      const [batch1, batch2] = await Promise.all([
+        buildQuery(0, 999),
+        buildQuery(1000, 1999),
+      ]);
+
+      const error = batch1.error || batch2.error;
+      const items = [...(batch1.data || []), ...(batch2.data || [])];
+      const total = batch1.count ?? 0;
 
       if (error) {
         grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${error.message}</div>`;
