@@ -36,6 +36,12 @@
       /* Hide cover images in print — save space */
       .td-cover { display: none !important; }
 
+      /* Title cell — show title only, hide series and variant */
+      .col-sub, .col-sub[style] { display: none !important; }
+
+      /* Hide publisher column (3rd td) */
+      td:nth-child(3), th:nth-child(3) { display: none !important; }
+
       /* Badges print friendly */
       .badge { border: 1px solid #ccc !important; color: black !important;
                background: white !important; padding: 1px 4px; font-size: 0.7rem; }
