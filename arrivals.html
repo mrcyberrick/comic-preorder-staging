@@ -155,11 +155,14 @@
   function getThisWednesday() {
     const today = new Date();
     const day   = today.getDay(); // 0=Sun, 3=Wed
-    // Days until next Wednesday; if today IS Wednesday, use today (diff=0)
     const diff  = (3 - day + 7) % 7;
     const wed   = new Date(today);
     wed.setDate(today.getDate() + diff);
-    return wed.toISOString().split('T')[0]; // YYYY-MM-DD
+    // Use local date parts to avoid UTC shift
+    const y = wed.getFullYear();
+    const m = String(wed.getMonth() + 1).padStart(2, '0');
+    const d = String(wed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   const thisWednesday = getThisWednesday();
