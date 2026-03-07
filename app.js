@@ -47,6 +47,8 @@ const Auth = {
       window.location.href = redirectTo;
       return null;
     }
+    return { user, profile };
+  },
 
   async signIn(email, password) {
     return await db.auth.signInWithPassword({ email, password });
@@ -98,7 +100,7 @@ async function initNav() {
   // Load upcoming items notification bubble
   // Runs async — does not block page load
   NavBubble.load(AdminContext.resolveUserId(user.id));
-  
+
   // ── Hamburger toggle ──────────────────────────────────
   const hamburger = nav.querySelector('#nav-hamburger');
   const navLinks  = nav.querySelector('.nav-links');
@@ -109,6 +111,7 @@ async function initNav() {
       navLinks.classList.toggle('open');
       navUser.classList.toggle('open');
     });
+    // Close menu when a link is clicked
     navLinks.querySelectorAll('a').forEach(a => {
       a.addEventListener('click', () => {
         hamburger.classList.remove('open');
@@ -342,7 +345,6 @@ async function checkMaintenanceMode(isAdmin) {
   if (isAdmin) return; // admins always get through
   const maint = await Settings.isMaintenanceMode();
   if (maint) {
-    // Show fullscreen maintenance overlay
     document.body.innerHTML = `
       <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;
                   background:var(--bg);font-family:var(--font-body);">
@@ -505,7 +507,6 @@ function renderSkeletons(count = 12, container) {
 const COVER_PLACEHOLDER = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='225' viewBox='0 0 150 225'%3E%3Crect width='150' height='225' fill='%23222'/%3E%3Crect x='20' y='20' width='110' height='4' rx='2' fill='%23333'/%3E%3Crect x='20' y='32' width='80' height='4' rx='2' fill='%23333'/%3E%3Crect x='20' y='60' width='110' height='80' rx='4' fill='%23333'/%3E%3Crect x='20' y='156' width='90' height='4' rx='2' fill='%23333'/%3E%3Crect x='20' y='168' width='60' height='4' rx='2' fill='%23333'/%3E%3C/svg%3E`;
 
 function buildComicCard(comic, reservedQty) {
-  // reservedQty: 0 = not reserved, >0 = reserved with that quantity
   const isReserved = reservedQty > 0;
   const coverHtml = `<img
     src="${comic.cover_url ? escapeHtml(comic.cover_url) : COVER_PLACEHOLDER}"
