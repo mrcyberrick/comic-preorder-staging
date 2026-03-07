@@ -899,21 +899,27 @@ button { cursor: pointer; font-family: var(--font-body); }
 @media (max-width: 640px) {
   .nav-hamburger { display: flex; }
 
-  .nav-inner { flex-wrap: wrap; }
+  .nav-inner { flex-wrap: wrap; position: relative; }
 
   .nav-links {
     display: none;
     flex-direction: column;
-    width: 100%;
-    padding: 8px 0 12px;
-    border-top: 1px solid var(--border);
-    gap: 0;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: 200px;
+    background: var(--nav-bg, #111);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 0;
+    z-index: 200;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
   }
   .nav-links.open { display: flex; }
   .nav-links li { width: 100%; }
   .nav-links a {
     display: block;
-    padding: 10px 0;
+    padding: 10px 16px;
     font-size: 0.95rem;
   }
 
