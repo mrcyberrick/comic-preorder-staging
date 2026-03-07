@@ -934,4 +934,10 @@ button { cursor: pointer; font-family: var(--font-body); }
     justify-content: space-between;
     align-items: center;
   }
+  .nav-bubble {
+    position: static !important;
+    display: inline-flex !important;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
 }

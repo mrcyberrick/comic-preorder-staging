@@ -154,16 +154,13 @@ const NavBubble = {
     }
   },
 
-  render(count) {
-    // Remove any existing bubble first
+render(count) {
     document.querySelectorAll('.nav-bubble').forEach(b => b.remove());
     if (count < 1) return;
 
-    // Find the My List nav link
     const myListLink = document.querySelector('.nav-links a[href="mylist.html"]');
     if (!myListLink) return;
 
-    // Wrap the link in a relative container if not already
     const li = myListLink.parentElement;
     li.style.position = 'relative';
 
@@ -171,17 +168,33 @@ const NavBubble = {
     bubble.className = 'nav-bubble';
     bubble.textContent = count > 99 ? '99+' : String(count);
     bubble.title = `${count} reserved item${count !== 1 ? 's' : ''} on sale within 7 days`;
-    bubble.style.cssText = [
-      'position:absolute;top:-6px;right:-18px;',
-      'background:#e74c3c;color:white;',
-      'font-size:0.62rem;font-weight:700;',
-      'min-width:16px;height:16px;',
-      'border-radius:8px;padding:0 4px;',
-      'display:flex;align-items:center;justify-content:center;',
-      'pointer-events:none;line-height:1;',
-      'box-shadow:0 1px 4px rgba(0,0,0,0.4);',
-      'letter-spacing:0;',
-    ].join('');
+
+    const isMobile = window.innerWidth <= 640;
+    if (isMobile) {
+      bubble.style.cssText = [
+        'display:inline-flex;align-items:center;justify-content:center;',
+        'background:#e74c3c;color:white;',
+        'font-size:0.62rem;font-weight:700;',
+        'min-width:16px;height:16px;',
+        'border-radius:8px;padding:0 4px;',
+        'margin-left:6px;',
+        'pointer-events:none;line-height:1;',
+        'box-shadow:0 1px 4px rgba(0,0,0,0.4);',
+        'letter-spacing:0;vertical-align:middle;',
+      ].join('');
+    } else {
+      bubble.style.cssText = [
+        'position:absolute;top:-6px;right:-18px;',
+        'background:#e74c3c;color:white;',
+        'font-size:0.62rem;font-weight:700;',
+        'min-width:16px;height:16px;',
+        'border-radius:8px;padding:0 4px;',
+        'display:flex;align-items:center;justify-content:center;',
+        'pointer-events:none;line-height:1;',
+        'box-shadow:0 1px 4px rgba(0,0,0,0.4);',
+        'letter-spacing:0;',
+      ].join('');
+    }
 
     li.appendChild(bubble);
   },
