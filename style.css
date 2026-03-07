@@ -907,7 +907,7 @@ button { cursor: pointer; font-family: var(--font-body); }
     position: absolute;
     top: 100%;
     right: 0;
-    width: 200px;
+    width: 220px;
     background: #111;
     border: 1px solid var(--border);
     border-radius: 6px;
