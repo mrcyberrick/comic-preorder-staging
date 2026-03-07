@@ -93,6 +93,7 @@ button { cursor: pointer; font-family: var(--font-body); }
   color: var(--text-secondary);
   transition: var(--transition);
   letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 .nav-links a:hover, .nav-links a.active {
   color: var(--text-primary);
@@ -868,10 +869,9 @@ button { cursor: pointer; font-family: var(--font-body); }
   .modal-cover { width: 80px; }
   .stats-bar { gap: 16px; }
   .toolbar { gap: 8px; }
-  .nav-links { display: none; }
 }
 
-/* ── Hamburger button ─────────────────────────────────── */
+/* ── Hamburger button ─────────────────────────────────────── */
 .nav-hamburger {
   display: none;
   flex-direction: column;
@@ -908,7 +908,7 @@ button { cursor: pointer; font-family: var(--font-body); }
     top: 100%;
     right: 0;
     width: 200px;
-    background: var(--nav-bg, #111);
+    background: #111;
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 8px 0;
@@ -921,6 +921,7 @@ button { cursor: pointer; font-family: var(--font-body); }
     display: block;
     padding: 10px 16px;
     font-size: 0.95rem;
+    white-space: nowrap;
   }
 
   .nav-user {
@@ -933,11 +934,5 @@ button { cursor: pointer; font-family: var(--font-body); }
     border-top: 1px solid var(--border);
     justify-content: space-between;
     align-items: center;
-  }
-  .nav-bubble {
-    position: static !important;
-    display: inline-flex !important;
-    margin-left: 6px;
-    vertical-align: middle;
   }
 }
