@@ -417,7 +417,13 @@
       container.innerHTML = `<div class="alert alert-error">Failed to load your list: ${error.message}</div>`;
       return;
     }
-    allItems = items;
+    // Hide items from previous months where on_sale_date has already passed.
+    // Items with no on_sale_date, or with a future/today date, are always shown.
+    const today = new Date().toISOString().split('T')[0];
+    allItems = items.filter(i => {
+      const d = i.catalog?.on_sale_date;
+      return !d || d >= today;
+    });
     renderList();
   }
 
