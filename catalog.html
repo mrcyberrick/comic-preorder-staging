@@ -249,39 +249,53 @@
     // single pageSize:2000 call only ever returns the first 1000 items,
     // which meant PRH items — sorted after Lunar — were always missing).
     if (reserveFilter === 'reserved' || reserveFilter === 'unreserved') {
-      // Fetch all matching rows client-side for reserved/unreserved filtering.
-      // Uses .limit() only — avoids .range() which returns 416 on small/empty sets.
-      const buildQuery = (offset) => {
-        let q = db.from('catalog').select('*', { count: 'exact' });
+      // Step 1: Get total count first (head request — no rows returned)
+      // This tells us how many rows to expect before we fetch, avoiding
+      // 416 errors from .range() on small or empty result sets.
+      const buildFilters = (q) => {
         if (currentMonth)    q = q.eq('catalog_month', currentMonth);
         if (distEl.value)    q = q.eq('distributor', distEl.value);
         if (pubEl.value)     q = q.eq('publisher', pubEl.value);
         const s = searchEl.value.trim();
         if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%`);
-        return q.order('publisher', { ascending: true })
-                .order('series_name', { ascending: true })
-                .order('title', { ascending: true })
-                .limit(1000)
-                .offset(offset);
+        return q;
       };
 
-      const batch1 = await buildQuery(0);
-      if (batch1.error) {
-        grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(batch1.error.message || JSON.stringify(batch1.error))}</div>`;
+      const countRes = await buildFilters(
+        db.from('catalog').select('*', { count: 'exact', head: true })
+      );
+      if (countRes.error) {
+        grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(countRes.error.message || JSON.stringify(countRes.error))}</div>`;
         return;
       }
+      const total = countRes.count ?? 0;
 
-      const total  = batch1.count ?? 0;
-      let batch2 = { data: [], error: null };
-      if (total > 1000) {
-        batch2 = await buildQuery(1000);
-        if (batch2.error) {
-          grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(batch2.error.message || JSON.stringify(batch2.error))}</div>`;
+      // Step 2: Fetch rows only if we know they exist
+      let items = [];
+      if (total > 0) {
+        const buildQuery = (from, to) =>
+          buildFilters(db.from('catalog').select('*'))
+            .order('publisher',    { ascending: true })
+            .order('series_name',  { ascending: true })
+            .order('title',        { ascending: true })
+            .range(from, to);
+
+        const batch1 = await buildQuery(0, Math.min(999, total - 1));
+        if (batch1.error) {
+          grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(batch1.error.message || JSON.stringify(batch1.error))}</div>`;
           return;
         }
-      }
+        items = batch1.data || [];
 
-      const items = [...(batch1.data || []), ...(batch2.data || [])];
+        if (total > 1000) {
+          const batch2 = await buildQuery(1000, Math.min(1999, total - 1));
+          if (batch2.error) {
+            grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(batch2.error.message || JSON.stringify(batch2.error))}</div>`;
+            return;
+          }
+          items = [...items, ...(batch2.data || [])];
+        }
+      }
 
       // Apply client-side reserved filter across ALL items
       const filtered = reserveFilter === 'reserved'
