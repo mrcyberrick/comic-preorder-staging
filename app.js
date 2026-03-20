@@ -212,7 +212,7 @@ const Catalog = {
     if (publisher)   query = query.eq('publisher', publisher);
     if (search) {
       query = query.or(
-        `title.ilike.%${search}%,series_name.ilike.%${search}%,writer.ilike.%${search}%,publisher.ilike.%${search}%`
+        `title.ilike.%${search}%,series_name.ilike.%${search}%,writer.ilike.%${search}%,publisher.ilike.%${search}%,upc.ilike.%${search}%,isbn.ilike.%${search}%`
       );
     }
 

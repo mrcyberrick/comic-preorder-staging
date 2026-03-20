@@ -62,7 +62,7 @@
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
       </svg>
-      <input type="text" class="search-input" id="search" placeholder="Search titles, series, writers…">
+      <input type="text" class="search-input" id="search" placeholder="Search titles, series, writers, UPC, ISBN…">
     </div>
     <select class="filter-select" id="filter-distributor">
       <option value="">All Distributors</option>
@@ -264,7 +264,7 @@
         if (distEl.value)    q = q.eq('distributor', distEl.value);
         if (pubEl.value)     q = q.eq('publisher', pubEl.value);
         const s = searchEl.value.trim();
-        if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%`);
+        if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%,upc.ilike.%${s}%,isbn.ilike.%${s}%`);
         return q;
       };
 
