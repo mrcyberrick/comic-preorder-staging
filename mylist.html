@@ -123,10 +123,82 @@
       border-bottom: 1px solid var(--border);
     }
 
-        /* ── Print Styles ─────────────────────────────────────── */
+        /* ── Subscriptions Section ───────────────────────────── */
+    .my-subs {
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .my-subs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      cursor: pointer;
+      background: var(--bg-card);
+      transition: var(--transition);
+      user-select: none;
+    }
+    .my-subs-header:hover { background: var(--bg-elevated); }
+    .my-subs-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .my-subs-count {
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .my-subs-chevron {
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      font-size: 0.75rem;
+    }
+    .my-subs.open .my-subs-chevron { transform: rotate(180deg); }
+    .my-subs-body {
+      display: none;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .my-subs.open .my-subs-body { display: block; }
+    .my-subs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .my-subs-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .my-subs-table tr:last-child td { border-bottom: none; }
+    .my-subs-table tr:hover td { background: var(--bg-elevated); }
+    .my-subs-series { font-weight: 600; color: var(--text-primary); }
+    .my-subs-manage {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      padding: 8px 16px 12px;
+      text-align: right;
+    }
+    .my-subs-manage a { color: var(--accent); text-decoration: none; }
+    .my-subs-manage a:hover { text-decoration: underline; }
+
+    /* ── Print Styles ─────────────────────────────────────── */
     @media print {
       /* Hide everything except the list */
-      .nav, .toolbar, .btn, .qty-btn, .cancel-btn,
+      .nav, .toolbar, .btn, .qty-btn, .cancel-btn, .my-subs,
       #toast-container, .page-header p,
       #admin-impersonation-banner,
       th:last-child, td:last-child,          /* Remove column */
@@ -189,6 +261,7 @@
     <ul class="nav-links">
       <li><a href="catalog.html">Catalog</a></li>
       <li><a href="mylist.html">My List</a></li>
+      <li><a href="subscriptions.html">Subscriptions</a></li>
       <li><a href="arrivals.html" id="nav-arrivals-link">This Week</a></li>
       <li id="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
     </ul>
@@ -278,6 +351,26 @@
     </div>
     <div class="month-arrivals-body">
       <div class="month-arrivals-grid" id="month-arrivals-grid"></div>
+    </div>
+  </div>
+
+
+  <!-- Subscriptions (collapsible) -->
+  <div class="my-subs" id="my-subs-section" style="display:none">
+    <div class="my-subs-header" id="my-subs-toggle">
+      <div class="my-subs-title">
+        <span>My Subscriptions</span>
+        <span class="my-subs-count" id="my-subs-count">0</span>
+      </div>
+      <span class="my-subs-chevron">▼</span>
+    </div>
+    <div class="my-subs-body">
+      <table class="my-subs-table">
+        <tbody id="my-subs-body"></tbody>
+      </table>
+      <div class="my-subs-manage">
+        <a href="subscriptions.html">Manage all subscriptions →</a>
+      </div>
     </div>
   </div>
 
@@ -543,6 +636,70 @@
   });
 
 
+
+  // ── My Subscriptions ──────────────────────────────────────
+  async function loadMySubscriptions() {
+    const targetUserId = AdminContext.resolveUserId(user.id);
+    const { items, error } = await Subscriptions.getAll(targetUserId);
+    if (error || !items.length) {
+      document.getElementById('my-subs-section').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('my-subs-section').style.display = 'block';
+    document.getElementById('my-subs-count').textContent = items.length;
+
+    let allSubs = items;
+
+    function renderSubTable() {
+      document.getElementById('my-subs-body').innerHTML = allSubs.map(sub => `
+        <tr>
+          <td><div class="my-subs-series">${escapeHtml(sub.series_name)}</div></td>
+          <td><span class="badge badge-${sub.distributor.toLowerCase()}">${escapeHtml(sub.distributor)}</span></td>
+          <td style="text-align:right">
+            <button class="btn btn-danger btn-sm unsub-btn"
+              data-series="${escapeHtml(sub.series_name)}"
+              data-distributor="${escapeHtml(sub.distributor)}">
+              Unsubscribe
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      document.querySelectorAll('.unsub-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(`Unsubscribe from "${btn.dataset.series}"?`)) return;
+          btn.disabled = true;
+          const { error } = await Subscriptions.unsubscribe(
+            targetUserId, btn.dataset.series, btn.dataset.distributor
+          );
+          if (error) {
+            toast('Failed to unsubscribe', 'error');
+            btn.disabled = false;
+          } else {
+            allSubs = allSubs.filter(s =>
+              !(s.series_name === btn.dataset.series && s.distributor === btn.dataset.distributor)
+            );
+            toast(`Unsubscribed from ${btn.dataset.series}`);
+            document.getElementById('my-subs-count').textContent = allSubs.length;
+            if (!allSubs.length) {
+              document.getElementById('my-subs-section').style.display = 'none';
+            } else {
+              renderSubTable();
+            }
+          }
+        });
+      });
+    }
+
+    renderSubTable();
+  }
+
+  // Toggle collapse
+  document.getElementById('my-subs-toggle').addEventListener('click', () => {
+    document.getElementById('my-subs-section').classList.toggle('open');
+  });
+
   // ── Upcoming Arrivals ────────────────────────────────────
   function renderArrivingThisMonth() {
     const today = new Date().toISOString().split('T')[0];
@@ -626,6 +783,7 @@
   const currentMonth = await Catalog.getLatestMonth();
   await loadList();
   renderArrivingThisMonth();
+  await loadMySubscriptions();
 })();
 </script>
 </body>

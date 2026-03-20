@@ -447,6 +447,61 @@ const Preorders = {
   },
 };
 
+// ── Subscriptions ─────────────────────────────────────────────
+const Subscriptions = {
+  // Get all subscriptions for a user
+  async getAll(userId) {
+    const { data, error } = await db
+      .from('subscriptions')
+      .select('id, series_name, distributor, created_at')
+      .eq('user_id', userId)
+      .order('series_name', { ascending: true });
+    return { items: data || [], error };
+  },
+
+  // Check if user is subscribed to a specific series
+  async isSubscribed(userId, seriesName, distributor) {
+    const { data } = await db
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('series_name', seriesName)
+      .eq('distributor', distributor)
+      .maybeSingle();
+    return !!data;
+  },
+
+  // Subscribe to a series
+  async subscribe(userId, seriesName, distributor) {
+    const { data, error } = await db
+      .from('subscriptions')
+      .insert({ user_id: userId, series_name: seriesName, distributor })
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  // Unsubscribe from a series
+  async unsubscribe(userId, seriesName, distributor) {
+    const { error } = await db
+      .from('subscriptions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('series_name', seriesName)
+      .eq('distributor', distributor);
+    return { error };
+  },
+
+  // Admin: get all subscriptions across all users
+  async getAllAdmin() {
+    const { data, error } = await db
+      .from('subscriptions')
+      .select('id, series_name, distributor, created_at, user_profiles ( full_name )')
+      .order('series_name', { ascending: true });
+    return { items: data || [], error };
+  },
+};
+
 // ── UI Helpers ────────────────────────────────────────────────
 function toast(message, type = 'success') {
   let container = document.getElementById('toast-container');

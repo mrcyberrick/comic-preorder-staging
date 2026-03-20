@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscriptions — Pull List</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Subscriptions Table ──────────────────────────────── */
+    .sub-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    .sub-table th {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sub-table td {
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+    .sub-table tr:last-child td { border-bottom: none; }
+    .sub-table tr:hover td { background: var(--bg-elevated); }
+    .sub-series-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .sub-since {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .sub-empty {
+      text-align: center;
+      padding: 80px 24px;
+      color: var(--text-muted);
+    }
+    .sub-empty h3 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: var(--text-secondary);
+    }
+    .sub-empty p { font-size: 0.88rem; }
+  </style>
+</head>
+<body>
+
+<nav class="nav" id="main-nav">
+  <div class="container nav-inner">
+    <a href="catalog.html" class="nav-logo">PULL<span>LIST</span></a>
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <ul class="nav-links">
+      <li><a href="catalog.html">Catalog</a></li>
+      <li><a href="mylist.html">My List</a></li>
+      <li><a href="arrivals.html" id="nav-arrivals-link">This Week</a></li>
+      <li id="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
+    </ul>
+    <div class="nav-user">
+      <span>Welcome, <strong id="nav-username"></strong></span>
+      <button class="btn-logout" id="btn-logout">Sign Out</button>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="page-header">
+    <h1 id="page-title">My Subscriptions</h1>
+    <p id="page-subtitle">Series automatically added to your pull list each month</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-value" id="stat-count">—</div>
+      <div class="stat-label">Active Subscriptions</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--lunar)" id="stat-lunar">—</div>
+      <div class="stat-label">Lunar</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color:var(--prh)" id="stat-prh">—</div>
+      <div class="stat-label">PRH</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar" style="margin-bottom:16px">
+    <a href="catalog.html" class="btn btn-primary btn-sm">
+      + Browse Catalog
+    </a>
+  </div>
+
+  <!-- Subscriptions list -->
+  <div id="subs-container">
+    <div class="empty-state">
+      <p style="color:var(--text-muted)">Loading…</p>
+    </div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  Service provided by Ray &amp; Judy's Book Stop &middot; Rockaway, NJ
+</footer>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+(async () => {
+  const navData = await initNav();
+  if (!navData) return;
+  const { user, profile } = navData;
+
+  try { await checkMaintenanceMode(profile?.is_admin); }
+  catch(e) { if (e.message === 'maintenance') return; }
+
+  const container = document.getElementById('subs-container');
+
+  // Admin context support
+  if (AdminContext.isActive()) {
+    document.getElementById('page-title').textContent =
+      AdminContext.activeUserName + "'s Subscriptions";
+    document.getElementById('page-subtitle').textContent =
+      'Managing subscriptions on behalf of this customer';
+  }
+
+  let allSubs = [];
+
+  async function loadSubs() {
+    const targetUserId = AdminContext.resolveUserId(user.id);
+    const { items, error } = await Subscriptions.getAll(targetUserId);
+
+    if (error) {
+      container.innerHTML = `<div class="alert alert-error">Failed to load subscriptions: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    allSubs = items;
+    renderSubs();
+  }
+
+  function renderSubs() {
+    // Stats
+    document.getElementById('stat-count').textContent = allSubs.length;
+    document.getElementById('stat-lunar').textContent =
+      allSubs.filter(s => s.distributor === 'Lunar').length;
+    document.getElementById('stat-prh').textContent =
+      allSubs.filter(s => s.distributor === 'PRH').length;
+
+    if (!allSubs.length) {
+      container.innerHTML = `
+        <div class="sub-empty">
+          <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5"
+               viewBox="0 0 24 24" style="margin-bottom:16px;color:var(--text-muted)">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+          <h3>No subscriptions yet</h3>
+          <p>Open any series in the catalog and click <strong>☆ Subscribe</strong> to get started.</p>
+          <a href="catalog.html" class="btn btn-primary" style="margin-top:16px">Browse Catalog</a>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <table class="sub-table">
+        <thead>
+          <tr>
+            <th>Series</th>
+            <th>Distributor</th>
+            <th>Subscribed Since</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${allSubs.map(sub => `
+            <tr>
+              <td><div class="sub-series-name">${escapeHtml(sub.series_name)}</div></td>
+              <td><span class="badge badge-${sub.distributor.toLowerCase()}">${escapeHtml(sub.distributor)}</span></td>
+              <td><div class="sub-since">${formatDate(sub.created_at?.split('T')[0])}</div></td>
+              <td style="text-align:right">
+                <button class="btn btn-danger btn-sm unsub-btn"
+                  data-series="${escapeHtml(sub.series_name)}"
+                  data-distributor="${escapeHtml(sub.distributor)}">
+                  Unsubscribe
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+
+    // Unsubscribe buttons
+    container.querySelectorAll('.unsub-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Unsubscribe from "${btn.dataset.series}"?`)) return;
+        btn.disabled = true;
+        const targetUserId = AdminContext.resolveUserId(user.id);
+        const { error } = await Subscriptions.unsubscribe(
+          targetUserId, btn.dataset.series, btn.dataset.distributor
+        );
+        if (error) {
+          toast('Failed to unsubscribe', 'error');
+          btn.disabled = false;
+        } else {
+          allSubs = allSubs.filter(s =>
+            !(s.series_name === btn.dataset.series && s.distributor === btn.dataset.distributor)
+          );
+          toast(`Unsubscribed from ${btn.dataset.series}`);
+          renderSubs();
+        }
+      });
+    });
+  }
+
+  await loadSubs();
+})();
+</script>
+</body>
+</html>

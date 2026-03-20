@@ -18,6 +18,7 @@
     <ul class="nav-links">
       <li><a href="catalog.html">Catalog</a></li>
       <li><a href="mylist.html">My List</a></li>
+      <li><a href="subscriptions.html">Subscriptions</a></li>
       <li><a href="arrivals.html" id="nav-arrivals-link">This Week</a></li>
       <li id="nav-admin" style="display:none"><a href="admin.html">Admin</a></li>
     </ul>
@@ -116,6 +117,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="modal-close">Close</button>
+      <button class="btn btn-ghost" id="modal-subscribe" style="display:none">☆ Subscribe</button>
       <div class="qty-stepper" id="modal-qty-wrap">
         <button class="qty-btn" id="qty-minus">−</button>
         <input type="number" id="modal-qty" value="1" min="1" max="99"
@@ -154,6 +156,7 @@
   let currentPage = 1;
   let currentMonth = null;
   let reservedIds = new Set();
+  let mySubscriptions = new Set(); // Set of "series_name||distributor" keys
   let allItems = [];
   let totalCount = 0;
   let modalComicId = null;
@@ -220,6 +223,10 @@
 
   reservedIds = await Preorders.getMyIds(AdminContext.resolveUserId(user.id));
   document.getElementById('stat-reserved').textContent = [...reservedIds.values()].reduce((s,q) => s+q, 0);
+
+  // Load subscriptions for subscribe button state
+  const { items: subItems } = await Subscriptions.getAll(user.id);
+  mySubscriptions = new Set(subItems.map(s => `${s.series_name}||${s.distributor}`));
 
   // Load publishers for filter
   if (currentMonth) {
@@ -582,6 +589,41 @@
         }, 300);
       }
     };
+
+    // ── Subscribe button ───────────────────────────────────
+    const subscribeBtn = document.getElementById('modal-subscribe');
+    if (comic.series_name && !AdminContext.isActive()) {
+      const subKey = `${comic.series_name}||${comic.distributor}`;
+      const isSubscribed = mySubscriptions.has(subKey);
+      subscribeBtn.style.display = '';
+      subscribeBtn.textContent = isSubscribed ? '★ Subscribed' : '☆ Subscribe';
+      subscribeBtn.className   = isSubscribed ? 'btn btn-ghost subscribed' : 'btn btn-ghost';
+      subscribeBtn.onclick = async () => {
+        subscribeBtn.disabled = true;
+        if (mySubscriptions.has(subKey)) {
+          const { error } = await Subscriptions.unsubscribe(user.id, comic.series_name, comic.distributor);
+          if (error) { toast('Failed to unsubscribe', 'error'); }
+          else {
+            mySubscriptions.delete(subKey);
+            subscribeBtn.textContent = '☆ Subscribe';
+            subscribeBtn.className   = 'btn btn-ghost';
+            toast(`Unsubscribed from ${comic.series_name}`);
+          }
+        } else {
+          const { error } = await Subscriptions.subscribe(user.id, comic.series_name, comic.distributor);
+          if (error) { toast('Failed to subscribe', 'error'); }
+          else {
+            mySubscriptions.add(subKey);
+            subscribeBtn.textContent = '★ Subscribed';
+            subscribeBtn.className   = 'btn btn-ghost subscribed';
+            toast(`Subscribed to ${comic.series_name}!`);
+          }
+        }
+        subscribeBtn.disabled = false;
+      };
+    } else {
+      subscribeBtn.style.display = 'none';
+    }
 
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
