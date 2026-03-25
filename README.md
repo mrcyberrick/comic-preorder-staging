@@ -1,101 +1,145 @@
-# BookStop Comics — Pull List Pre-Order System
+# PULLLIST — Comic Pre-Order System
 
-A monthly comic book pre-order system for Ray & Judy's Book Stop, Rockaway NJ.
-Customers log in to browse the current Lunar and PRH catalog and reserve titles
-before the Final Order Cutoff (FOC) deadline. The admin panel manages customers,
-views all reservations, and exports distributor order sheets.
+A web-based pre-order management system for **Ray & Judy's Book Stop**, Rockaway NJ.
+Customers browse the monthly comic catalog, reserve titles, and manage their pull list.
+The store uses the admin dashboard to track orders and export distributor order sheets.
 
-Live site: [mrcyberrick.us/comic-preorder](https://mrcyberrick.us/comic-preorder)
+**Production**: https://mrcyberrick.us/comic-preorder/  
+**Staging**: https://mrcyberrick.github.io/comic-preorder-staging/
 
 ---
 
-## Stack
+## Features
+
+- Monthly catalog import from Lunar Distribution and PRH (Penguin Random House)
+- Customer browse, search, and reserve — with UPC/ISBN search support
+- Pull list management with quantity adjustments and CSV export
+- Series subscriptions — auto-reserve standard covers each month
+- This Week's Arrivals — Wednesday on-sale date view for customers and admin
+- Upcoming Arrivals — multi-month forward view on customer pull list
+- Admin dashboard — by customer, by distributor, this week, all reservations, subscriptions
+- Customer invite via branded email
+- Maintenance mode for catalog refresh downtime
+- Print/PDF export for customer pull lists and weekly arrivals
+- Mobile-responsive with hamburger nav
+
+---
+
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Hosting | GitHub Pages |
-| Database + Auth | Supabase (PostgreSQL + Row Level Security) |
-| Email | MailerSend |
-| Frontend | Vanilla HTML / CSS / JS |
+| Frontend | Vanilla HTML, CSS, JavaScript (no build step) |
+| Backend | Supabase (PostgreSQL, Auth, RLS, Edge Functions) |
+| Hosting | GitHub Pages (static) |
+| Email | MailerSend via Supabase Edge Functions |
+| Import | Node.js script (runs locally, not in repo) |
 
 ---
 
-## Site Pages
+## Repository Structure
 
-| File | Description |
-|---|---|
-| `index.html` | Login page |
-| `catalog.html` | Browse current month's Lunar + PRH titles, reserve with one click |
-| `mylist.html` | Customer's personal pull list with running total and CSV export |
-| `admin.html` | Admin dashboard — reservations by customer, by distributor, order sheet exports, invite customers, maintenance mode |
-| `forgot-password.html` | Password reset flow |
-| `app.js` | Shared Supabase client, auth, and all API logic |
-| `style.css` | Dark comic shop aesthetic, fully responsive |
+```
+/
+  catalog.html          ← monthly catalog browse & reserve
+  mylist.html           ← customer pull list
+  arrivals.html         ← this week's arrivals
+  subscriptions.html    ← series subscription management
+  admin.html            ← admin dashboard
+  app.js                ← shared app logic & Supabase API objects
+  style.css             ← all styles
+  config.js             ← Supabase credentials (gitignored — never commit)
+  CLAUDE.md             ← AI assistant project instructions
+  README.md             ← this file
+  docs/
+    monthly-catalog-refresh.md    ← monthly import SOP
+    technical-reference.md        ← architecture & schema reference
+```
 
 ---
 
-## Supabase Edge Functions
+## Setup
 
-| Function | Purpose |
-|---|---|
-| `invite-customer` | Creates auth account and sends branded invite email via MailerSend |
-| `notify-customers` | Sends catalog live notification to all customers after monthly import |
-| `reset-password` | Handles branded password reset emails |
+### Prerequisites
+- Node.js v20+
+- A Supabase project with the schema from `docs/technical-reference.md`
+
+### One-Time Database Setup
+Run the SQL in `docs/technical-reference.md` → Database Setup section in your
+Supabase SQL Editor to create all required tables, functions, and policies.
+
+### config.js
+Create `config.js` in the repo root (never commit this file):
+```javascript
+const SUPABASE_URL      = 'https://your-project.supabase.co';
+const SUPABASE_ANON_KEY = 'your-anon-key';
+```
+
+### Import Script
+The monthly import script lives outside the repo:
+```
+C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\
+  import.js         ← production (service role key for prod Supabase)
+  import-staging.js ← staging (service role key for staging Supabase)
+```
+
+Install dependencies once:
+```powershell
+cd C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts
+npm install csv-parse
+```
 
 ---
 
 ## Monthly Catalog Refresh
 
-Each month new CSV files are received from Lunar Distribution and PRH.
-A local Node.js script normalizes both files and imports them into Supabase.
+See `docs/monthly-catalog-refresh.md` for the complete step-by-step guide.
 
-See [`docs/monthly-catalog-refresh.md`](docs/monthly-catalog-refresh.md) for the full step-by-step workflow.
+Quick summary:
+1. Enable Maintenance Mode in admin panel
+2. Export order sheets (Lunar + PRH CSVs)
+3. Drop new CSV files in the catalogs folder
+4. Run `node .\import.js "..\Lunar_Product_Data_MMYY.csv" "..\YYYY_MM_PRH_...csv"`
+5. Verify import in Supabase SQL Editor
+6. Disable Maintenance Mode
 
-**Quick reference:**
-```bash
-cd catalogs/scripts
-node .\import.js "..\Lunar_Product_Data_MMYY.csv" "..\YYYY_MM_PRH_metadata_full_active.csv"
+---
+
+## Deployment
+
+### Staging
+```powershell
+git checkout staging
+git push origin staging
+git push staging staging:main
 ```
 
-The script handles normalization, Supabase import, and customer email notification in one run.
+### Production
+Always merge staging → main locally, restoring `config.js` before committing:
+```powershell
+git checkout main
+git pull origin main
+git merge staging --no-commit --no-ff
+git checkout main -- config.js
+git commit -m "feat: description"
+git checkout -b feat/description-prod
+git push origin feat/description-prod
+# Open PR on GitHub — verify config.js not in diff — merge
+```
 
 ---
 
-## Database Schema
+## Development Notes
 
-Full schema including all tables, indexes, RLS policies, and views:
-[`docs/schema.sql`](docs/schema.sql)
-
-**Tables:**
-- `catalog` — unified Lunar + PRH items, replaced monthly
-- `user_profiles` — extends Supabase auth with name, admin flag, notes
-- `preorders` — one row per customer reservation, supports quantity
-- `app_settings` — key/value store for maintenance mode and site config
-
----
-
-## Security
-
-- All tables have Row Level Security (RLS) enabled
-- Customers can only read the catalog and manage their own preorders
-- Admin functions are enforced server-side via Edge Functions
-- The anon key in `app.js` is intentionally public — RLS is the access control layer
-- Service role key and distributor CSV files are never committed to this repo
-
----
-
-## Local Scripts (not in repo)
-
-These files live on the admin's local machine only and are excluded via `.gitignore`:
-
-| File | Purpose |
-|---|---|
-| `catalogs/scripts/import.js` | Monthly catalog normalizer and Supabase importer |
-| `catalogs/import-catalog.ps1` | PowerShell backup import script |
+- No build step — edit HTML/CSS/JS files directly
+- All pages share `app.js` (loaded via `<script src="app.js">`) and `style.css`
+- Supabase credentials loaded from `config.js` which must be present but never committed
+- Nav links must be kept in sync across all 5 HTML files — see `CLAUDE.md`
+- Never use `toISOString()` for date display — use local date parts to avoid UTC shift
+- Supabase `.range()` returns 416 on empty result sets — use count-first approach
 
 ---
 
 ## Contact
 
-Rick Sedivec
-mrcyberrick.us
+Ray & Judy's Book Stop · Rockaway, NJ · 973-586-9182
