@@ -709,7 +709,8 @@ const WelcomeModal = {
       setTimeout(() => overlay.remove(), 220);
       // Mark seen — non-blocking, failure is silent (modal won't repeat next load anyway
       // until the flag is confirmed; worst case they see it once more)
-      db.from('user_profiles').update({ has_seen_welcome: true }).eq('id', userId);
+      // Chain .then() so Supabase JS v2 actually executes — the builder is lazy without await/.then
+      db.from('user_profiles').update({ has_seen_welcome: true }).eq('id', userId).then(() => {});
     });
   },
 };
