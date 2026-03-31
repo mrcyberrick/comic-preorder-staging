@@ -678,9 +678,19 @@ const Recommendations = {
 // Shown once to new users on their first visit after account creation.
 // Requires has_seen_welcome boolean column on user_profiles (DEFAULT false).
 // Not shown to admins or users who have already seen it.
+//
+// Uses a dual guard:
+//   1. localStorage key — instant, reliable on the same device/browser
+//   2. DB flag (has_seen_welcome) — persists across devices
+// localStorage is checked first so the modal never reappears even if the
+// DB write is slow or the profile was fetched before the write committed.
 const WelcomeModal = {
+  _localKey(userId) { return `pulllist_welcome_seen_${userId}`; },
+
   async show(userId, profile) {
-    if (profile?.is_admin || profile?.has_seen_welcome) return;
+    if (profile?.is_admin) return;
+    if (profile?.has_seen_welcome) return;
+    if (localStorage.getItem(this._localKey(userId))) return;
 
     const overlay = document.createElement('div');
     overlay.id = 'welcome-modal-overlay';
@@ -701,19 +711,20 @@ const WelcomeModal = {
       </div>
     `;
     document.body.appendChild(overlay);
-    // Defer class add one frame so the CSS transition fires
     requestAnimationFrame(() => overlay.classList.add('open'));
 
-    document.getElementById('welcome-got-it').addEventListener('click', async () => {
+    document.getElementById('welcome-got-it').addEventListener('click', () => {
       overlay.classList.remove('open');
       setTimeout(() => overlay.remove(), 220);
-      // Mark seen — non-blocking, failure is silent (modal won't repeat next load anyway
-      // until the flag is confirmed; worst case they see it once more)
-      // Chain .then() so Supabase JS v2 actually executes — the builder is lazy without await/.then
+      // Set localStorage immediately — prevents reappearance on this device
+      // even before the DB write completes
+      localStorage.setItem(this._localKey(userId), '1');
+      // Persist to DB for cross-device consistency
       db.from('user_profiles').update({ has_seen_welcome: true }).eq('id', userId).then(() => {});
     });
   },
 };
+
 
 // ── UI Helpers ────────────────────────────────────────────────
 function toast(message, type = 'success') {
