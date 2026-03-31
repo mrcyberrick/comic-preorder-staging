@@ -36,6 +36,9 @@
     <p id="catalog-subtitle">Browse and reserve items from the current order cycle</p>
   </div>
 
+  <!-- Order Deadline Banner — populated and shown by JS after FOC date is fetched -->
+  <div id="deadline-banner" class="deadline-banner" style="display:none" role="status" aria-live="polite"></div>
+
   <!-- Stats -->
   <div class="stats-bar" id="stats-bar">
     <div class="stat">
@@ -184,6 +187,13 @@
     }
   }
 
+  // ── Welcome modal — first-time users only ─────────────────────
+  // Non-blocking; runs after page init. Skipped for pending users
+  // (they see the pending banner which already orients them).
+  if (!isPending) {
+    WelcomeModal.show(user.id, profile);
+  }
+
   const PAGE_SIZE = 48;
   let currentPage = 1;
   let currentMonth = null;
@@ -214,6 +224,32 @@
   if (currentMonth) {
     document.getElementById('catalog-subtitle').textContent =
       `Catalog for ${currentMonth} — browse and reserve items`;
+  }
+
+  // ── Order deadline banner ─────────────────────────────────────
+  // Shown only while the deadline has not yet passed — hides itself automatically.
+  if (currentMonth) {
+    Catalog.getOrderDeadline(currentMonth).then(deadline => {
+      if (!deadline) return;
+      // Compare deadline to today using local date parts (no UTC shift)
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+      if (deadline < todayStr) return; // past deadline — stay hidden
+
+      const [dy, dm, dd] = deadline.split('-').map(Number);
+      const deadlineDate = new Date(dy, dm - 1, dd);
+      const formatted = deadlineDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+
+      const [my, mm] = currentMonth.split('-');
+      const monthLabel = new Date(parseInt(my), parseInt(mm) - 1, 1)
+        .toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      const banner = document.getElementById('deadline-banner');
+      banner.innerHTML =
+        '<span style="font-size:1rem;flex-shrink:0">⏰</span>' +
+        '<span>Reserve by <strong>' + formatted + '</strong> to lock in your ' + monthLabel + ' picks.</span>';
+      banner.style.display = 'flex';
+    });
   }
 
   // ── Admin user switcher ───────────────────────────────────

@@ -136,6 +136,22 @@ button { cursor: pointer; font-family: var(--font-body); }
 }
 .page-header p { color: var(--text-secondary); font-size: 0.9rem; }
 
+/* ── Order Deadline Banner ─────────────────────────────────── */
+.deadline-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(232, 50, 28, 0.07);
+  border: 1px solid rgba(232, 50, 28, 0.22);
+  border-radius: var(--radius);
+  padding: 11px 16px;
+  margin-bottom: 24px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+.deadline-banner strong { color: var(--text-primary); }
+
 /* ── Login Page ────────────────────────────────────────────── */
 .login-page {
   min-height: 100vh;
@@ -447,6 +463,61 @@ button { cursor: pointer; font-family: var(--font-body); }
 }
 .btn-reserve.reserved:hover {
   background: rgba(232,50,28,0.25);
+}
+
+/* ── Welcome Modal ─────────────────────────────────────────── */
+.welcome-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.welcome-modal-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+.welcome-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-lg);
+  padding: 40px 36px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: var(--shadow);
+  transform: translateY(16px);
+  transition: transform 0.2s ease;
+}
+.welcome-modal-overlay.open .welcome-modal { transform: translateY(0); }
+.welcome-modal-logo {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 16px;
+}
+.welcome-modal-logo span { color: var(--accent); }
+.welcome-modal h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+.welcome-modal p {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 28px;
+}
+.welcome-modal p strong { color: var(--text-primary); }
+@media (max-width: 640px) {
+  .welcome-modal { padding: 28px 22px; }
 }
 
 /* ── Comic Modal / Detail ──────────────────────────────────── */

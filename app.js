@@ -227,6 +227,32 @@ const Catalog = {
     return { items: data || [], error, total: count || 0 };
   },
 
+  // Returns the order deadline for a given catalog month:
+  // the earliest FOC date in that month minus 3 days, as a 'YYYY-MM-DD' string.
+  // Returns null if no FOC dates exist for the month.
+  // Uses local date arithmetic — never toISOString() — to avoid UTC shift.
+  async getOrderDeadline(month) {
+    const { data } = await db
+      .from('catalog')
+      .select('foc_date')
+      .eq('catalog_month', month)
+      .not('foc_date', 'is', null)
+      .order('foc_date', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (!data?.foc_date) return null;
+
+    const [y, m, d] = data.foc_date.split('-').map(Number);
+    const deadline = new Date(y, m - 1, d);
+    deadline.setDate(deadline.getDate() - 3);
+
+    const dy = deadline.getFullYear();
+    const dm = String(deadline.getMonth() + 1).padStart(2, '0');
+    const dd = String(deadline.getDate()).padStart(2, '0');
+    return `${dy}-${dm}-${dd}`;
+  },
+
   async getPublishers(month) {
     // Fetch in two batches to get all publishers across both distributors
     // Supabase default page limit is 1000, catalog has ~1900 rows
@@ -660,6 +686,46 @@ const Recommendations = {
       ids: [...personalIds, ...popularIds],
       hasPersonal: userSignal.size > 0,
     };
+  },
+};
+
+// ── Welcome Modal ─────────────────────────────────────────────
+// Shown once to new users on their first visit after account creation.
+// Requires has_seen_welcome boolean column on user_profiles (DEFAULT false).
+// Not shown to admins or users who have already seen it.
+const WelcomeModal = {
+  async show(userId, profile) {
+    if (profile?.is_admin || profile?.has_seen_welcome) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'welcome-modal-overlay';
+    overlay.className = 'welcome-modal-overlay';
+    overlay.innerHTML = `
+      <div class="welcome-modal">
+        <div class="welcome-modal-logo">PULL<span>LIST</span></div>
+        <h2>Welcome to PULLLIST</h2>
+        <p>
+          Each month, Ray &amp; Judy's Book Stop loads the latest catalog from our distributors.
+          Browse the Catalog, reserve what you want, and we'll have it waiting for you.
+          Watch the <strong>order deadline</strong> at the top of the Catalog page — that's your
+          cutoff to lock in picks for the month. Use <strong>Subscriptions</strong> to
+          auto-reserve a series every month without lifting a finger, and check
+          <strong>This Week</strong> on Wednesdays to see what's arrived for you.
+        </p>
+        <button class="btn btn-primary" id="welcome-got-it">Got it</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    // Defer class add one frame so the CSS transition fires
+    requestAnimationFrame(() => overlay.classList.add('open'));
+
+    document.getElementById('welcome-got-it').addEventListener('click', async () => {
+      overlay.classList.remove('open');
+      setTimeout(() => overlay.remove(), 220);
+      // Mark seen — non-blocking, failure is silent (modal won't repeat next load anyway
+      // until the flag is confirmed; worst case they see it once more)
+      db.from('user_profiles').update({ has_seen_welcome: true }).eq('id', userId);
+    });
   },
 };
 
