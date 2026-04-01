@@ -39,6 +39,17 @@
         style="display:flex;align-items:center;gap:6px;font-size:0.82rem">
         <span style="font-size:1rem;line-height:1">+</span> Invite Customer
       </button>
+      <!-- Order Deadline -->
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:0.82rem;color:var(--text-muted);font-weight:500;white-space:nowrap">Order Deadline</span>
+        <input type="date" id="deadline-input"
+          style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);
+                 color:var(--text-primary);font-family:var(--font-body);font-size:0.82rem;
+                 padding:5px 10px;outline:none;cursor:pointer"
+          title="Customers see this as their reservation cutoff date">
+        <button class="btn btn-secondary btn-sm" id="btn-save-deadline">Save</button>
+        <button class="btn btn-ghost btn-sm" id="btn-clear-deadline" title="Clear deadline — hides banner for customers" style="color:var(--text-muted)">✕</button>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:0.82rem;color:var(--text-muted);font-weight:500" id="maint-label">Maintenance Mode</span>
         <label class="toggle-switch" title="Lock site for catalog update">
@@ -705,6 +716,47 @@
     const label = document.getElementById('maint-label');
     label.style.color = on ? 'var(--accent)' : 'var(--text-muted)';
   }
+
+  // ── Order Deadline ────────────────────────────────────────
+  const deadlineInput    = document.getElementById('deadline-input');
+  const btnSaveDeadline  = document.getElementById('btn-save-deadline');
+  const btnClearDeadline = document.getElementById('btn-clear-deadline');
+
+  // Load current deadline on page open
+  const currentDeadline = await Settings.getOrderDeadline();
+  if (currentDeadline) deadlineInput.value = currentDeadline;
+
+  btnSaveDeadline.addEventListener('click', async () => {
+    const val = deadlineInput.value; // 'YYYY-MM-DD' or ''
+    if (!val) { toast('Pick a date first', 'error'); return; }
+    btnSaveDeadline.disabled = true;
+    btnSaveDeadline.textContent = 'Saving…';
+    const { error } = await Settings.setOrderDeadline(val);
+    if (error) {
+      toast('Failed to save deadline', 'error');
+    } else {
+      const [y, m, d] = val.split('-').map(Number);
+      const formatted = new Date(y, m - 1, d)
+        .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      toast(`Order deadline set to ${formatted}`);
+    }
+    btnSaveDeadline.disabled = false;
+    btnSaveDeadline.textContent = 'Save';
+  });
+
+  btnClearDeadline.addEventListener('click', async () => {
+    if (!confirm('Clear the order deadline? The banner will be hidden from customers until you set a new date.')) return;
+    btnClearDeadline.disabled = true;
+    const { error } = await Settings.setOrderDeadline('');
+    if (error) {
+      toast('Failed to clear deadline', 'error');
+    } else {
+      deadlineInput.value = '';
+      toast('Order deadline cleared — banner hidden from customers');
+    }
+    btnClearDeadline.disabled = false;
+  });
+
 
   // ── This Week ─────────────────────────────────────────────
   function getThisWednesday() {
