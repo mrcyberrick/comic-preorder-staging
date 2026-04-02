@@ -381,7 +381,12 @@
       allItems = orderedItems; // modal lookup only needs the current page
 
       const label = hasPersonal ? 'recommended' : 'popular';
-      countEl.textContent = `Showing ${Math.min(PAGE_SIZE, filteredTotal - pageFrom)} of ${filteredTotal} ${label} items`;
+      // Use orderedItems.length for the "showing" count — it reflects variant filtering.
+      // filteredTotal is the pre-filter recommended ID count so we can't use it as
+      // a denominator when variants are hidden (we only have the current page's data).
+      countEl.textContent = hideVariants
+        ? `Showing ${orderedItems.length} ${label} items (standard covers)`
+        : `Showing ${Math.min(PAGE_SIZE, filteredTotal - pageFrom)} of ${filteredTotal} ${label} items`;
 
       if (!orderedItems.length) {
         grid.innerHTML = `

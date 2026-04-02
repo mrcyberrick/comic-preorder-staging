@@ -637,8 +637,24 @@ button { cursor: pointer; font-family: var(--font-body); }
   padding: 16px 24px;
   border-top: 1px solid var(--border);
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+}
+@media (max-width: 480px) {
+  .modal-footer {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  /* Close button always on its own row at the bottom on mobile */
+  #modal-close {
+    order: 99;
+    width: 100%;
+    justify-content: center;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    margin-top: 2px;
+  }
 }
 
 /* ── Stats / Summary Bar ───────────────────────────────────── */
