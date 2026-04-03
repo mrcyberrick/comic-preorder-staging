@@ -337,10 +337,10 @@
     // records for the current page only — no 1900-row full-data fetch needed.
     if (reserveFilter === 'recommended') {
       const targetUserId = AdminContext.resolveUserId(user.id);
-      const { ids: recommendedIds, hasPersonal } =
+      const { items: rankedItems, hasPersonal } =
         await Recommendations.getCatalogIds(targetUserId, currentMonth);
 
-      if (!recommendedIds.length) {
+      if (!rankedItems.length) {
         grid.innerHTML = `
           <div class="empty-state" style="grid-column:1/-1">
             <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -354,10 +354,31 @@
         return;
       }
 
-      // Client-side pagination of the ranked ID list
-      const filteredTotal = recommendedIds.length;
+      // Apply variant filter to the FULL ranked list BEFORE paginating.
+      // Filtering after slicing caused short pages and empty grid cells.
+      const hideVariants = variantEl.value === 'standard';
+      const filteredItems = hideVariants
+        ? rankedItems.filter(i => isStandardCover(i))
+        : rankedItems;
+
+      const filteredTotal = filteredItems.length;
       const pageFrom      = (page - 1) * PAGE_SIZE;
-      const pageIds       = recommendedIds.slice(pageFrom, pageFrom + PAGE_SIZE);
+      const pageSlice     = filteredItems.slice(pageFrom, pageFrom + PAGE_SIZE);
+      const pageIds       = pageSlice.map(i => i.id);
+
+      if (!pageIds.length) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H9l4-8v4h2l-4 8z"/>
+            </svg>
+            <h3>No items found</h3>
+            <p>Try adjusting your search or filters</p>
+          </div>`;
+        paginEl.style.display = 'none';
+        countEl.textContent = '';
+        return;
+      }
 
       // Fetch full catalog records for only this page's IDs
       const { data: pageData, error: pageError } = await db
@@ -371,35 +392,14 @@
       }
 
       // Reorder fetched rows to match recommendation rank (`.in()` doesn't preserve order)
-      const itemById = new Map((pageData || []).map(i => [i.id, i]));
-      const hideVariants = variantEl.value === 'standard';
-      const orderedItems = pageIds
-        .map(id => itemById.get(id))
-        .filter(Boolean)
-        .filter(c => !hideVariants || isStandardCover(c));
+      const itemById     = new Map((pageData || []).map(i => [i.id, i]));
+      const orderedItems = pageIds.map(id => itemById.get(id)).filter(Boolean);
 
       allItems = orderedItems; // modal lookup only needs the current page
 
       const label = hasPersonal ? 'recommended' : 'popular';
-      // Use orderedItems.length for the "showing" count — it reflects variant filtering.
-      // filteredTotal is the pre-filter recommended ID count so we can't use it as
-      // a denominator when variants are hidden (we only have the current page's data).
-      countEl.textContent = hideVariants
-        ? `Showing ${orderedItems.length} ${label} items (standard covers)`
-        : `Showing ${Math.min(PAGE_SIZE, filteredTotal - pageFrom)} of ${filteredTotal} ${label} items`;
-
-      if (!orderedItems.length) {
-        grid.innerHTML = `
-          <div class="empty-state" style="grid-column:1/-1">
-            <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H9l4-8v4h2l-4 8z"/>
-            </svg>
-            <h3>No items found</h3>
-            <p>Try adjusting your search or filters</p>
-          </div>`;
-        paginEl.style.display = 'none';
-        return;
-      }
+      countEl.textContent = `Showing ${Math.min(pageIds.length, filteredTotal - pageFrom)} of ${filteredTotal} ${label} items` +
+        (hideVariants ? ' (standard covers)' : '');
 
       grid.innerHTML = orderedItems.map(c => buildComicCard(c, reservedIds.get(c.id) || 0)).join('');
       renderPagination(filteredTotal, page);

@@ -617,8 +617,9 @@ const Recommendations = {
       this._getPopularSeries(month),
     ]);
 
-    // Fetch only id + series fields for the full catalog month — lightweight
-    // relative to select('*'), but still needs two batches for Supabase's 1000-row cap.
+    // Fetch id + series + variant_type for the full catalog month.
+    // variant_type is included so the caller can filter standard covers BEFORE
+    // paginating — filtering after slicing causes short pages and empty grid cells.
     const countRes = await db
       .from('catalog')
       .select('*', { count: 'exact', head: true })
@@ -626,17 +627,17 @@ const Recommendations = {
       .not('series_name', 'is', null);
     const total = countRes.count ?? 0;
 
-    if (!total) return { ids: [], hasPersonal: false };
+    if (!total) return { items: [], hasPersonal: false };
 
     const [b1, b2] = await Promise.all([
       db.from('catalog')
-        .select('id, series_name, distributor')
+        .select('id, series_name, distributor, variant_type')
         .eq('catalog_month', month)
         .not('series_name', 'is', null)
         .range(0, 999),
       total > 1000
         ? db.from('catalog')
-            .select('id, series_name, distributor')
+            .select('id, series_name, distributor, variant_type')
             .eq('catalog_month', month)
             .not('series_name', 'is', null)
             .range(1000, 1999)
@@ -644,35 +645,35 @@ const Recommendations = {
     ]);
     const seriesRows = [...(b1.data || []), ...(b2.data || [])];
 
-    // Build series key → [catalog IDs] lookup
+    // Build series key → [{id, variant_type}] lookup
     const byKey = new Map();
     for (const row of seriesRows) {
       const key = `${row.series_name}||${row.distributor}`;
       if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key).push(row.id);
+      byKey.get(key).push({ id: row.id, variant_type: row.variant_type });
     }
 
-    const seen       = new Set();
-    const personalIds = [];
-    const popularIds  = [];
+    const seen         = new Set();
+    const personalItems = [];
+    const popularItems  = [];
 
     // Tier 1: items from series the user has reserved before
     for (const key of userSignal) {
-      for (const id of (byKey.get(key) || [])) {
-        if (!seen.has(id)) { personalIds.push(id); seen.add(id); }
+      for (const item of (byKey.get(key) || [])) {
+        if (!seen.has(item.id)) { personalItems.push(item); seen.add(item.id); }
       }
     }
 
     // Tier 2: items from the most-reserved series (SQL returns them pre-sorted)
     for (const series of popularSeries) {
       const key = `${series.series_name}||${series.distributor}`;
-      for (const id of (byKey.get(key) || [])) {
-        if (!seen.has(id)) { popularIds.push(id); seen.add(id); }
+      for (const item of (byKey.get(key) || [])) {
+        if (!seen.has(item.id)) { popularItems.push(item); seen.add(item.id); }
       }
     }
 
     return {
-      ids: [...personalIds, ...popularIds],
+      items: [...personalItems, ...popularItems], // each: { id, variant_type }
       hasPersonal: userSignal.size > 0,
     };
   },
