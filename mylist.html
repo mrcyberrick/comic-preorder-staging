@@ -426,6 +426,9 @@
     <button class="btn btn-secondary btn-sm" id="btn-export">
       ↓ Export CSV
     </button>
+    <button class="btn btn-secondary btn-sm" id="btn-email-list" title="Send your current pull list to your email">
+      ✉ Email My List
+    </button>
     <button class="btn btn-secondary btn-sm" id="btn-print">
       ⎙ Print / Save PDF
     </button>
@@ -922,6 +925,43 @@
       subtitleEl.textContent = `Your reservations for ${monthLabel}`;
     }
   }
+  // ── Email My List ──────────────────────────────────────────
+  // Hidden in admin impersonation context — email goes to the admin,
+  // not the customer being managed, which would be confusing.
+  const btnEmail = document.getElementById('btn-email-list');
+  if (AdminContext.isActive()) {
+    btnEmail.style.display = 'none';
+  } else {
+    btnEmail.addEventListener('click', async () => {
+      if (btnEmail.disabled) return;
+
+      btnEmail.disabled = true;
+      btnEmail.textContent = 'Sending…';
+
+      const { data: sessionData } = await db.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) {
+        toast('Session expired — please sign out and back in', 'error');
+        btnEmail.textContent = '✉ Email My List';
+        btnEmail.disabled = false;
+        return;
+      }
+
+      const { error } = await MyList.sendConfirmation(user.id, token);
+      if (error) {
+        toast('Failed to send — please try again', 'error');
+        btnEmail.textContent = '✉ Email My List';
+        btnEmail.disabled = false;
+      } else {
+        // Disable for the rest of the session — prevents repeat sends
+        btnEmail.textContent = '✓ List Sent';
+        btnEmail.style.opacity = '0.6';
+        toast('Your pull list has been emailed to you!');
+        // Button stays disabled — intentional per session design decision
+      }
+    });
+  }
+
   await loadList();
   renderArrivingThisMonth();
   await loadMySubscriptions();

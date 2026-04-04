@@ -517,6 +517,27 @@ const Subscriptions = {
   },
 };
 
+// ── My List Email ─────────────────────────────────────────────
+// Sends the customer a confirmation email of their current pull list.
+// Called from mylist.html — requires the user's active session token
+// so the Edge Function can verify the request is authenticated.
+const MyList = {
+  async sendConfirmation(userId, sessionToken) {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-my-list`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${sessionToken}`,
+        'apikey':        SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ user_id: userId }),
+    });
+    const result = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { error: result.error || `HTTP ${resp.status}` };
+    return { data: result };
+  },
+};
+
 // ── Recommendations ───────────────────────────────────────────
 
 // ── Users (Admin) ─────────────────────────────────
