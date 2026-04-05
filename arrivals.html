@@ -314,62 +314,15 @@
     `${arrivals.length} reserved title${arrivals.length !== 1 ? 's' : ''} arriving ${wedDisplay}`;
 
   if (!arrivals.length) {
-    // Show personal empty message, then load all store titles for this Wednesday
     container.innerHTML = `
       <div class="arrivals-empty">
         <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:16px;color:var(--text-muted)">
           <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
           <path d="M16 3H8L6 7h12l-2-4z"/>
         </svg>
-        <h2>Nothing reserved for this week</h2>
+        <h2>Nothing arriving this week</h2>
         <p>Your next arrivals are on a different week — check your <a href="mylist.html" style="color:var(--accent)">full pull list</a>.</p>
-      </div>
-      <div id="store-titles-section"></div>`;
-
-    // Async: fetch and render all titles on sale this Wednesday
-    (async () => {
-      const { data: onSale } = await db
-        .from('catalog')
-        .select('id, title, series_name, publisher, distributor, cover_url, price_usd')
-        .eq('on_sale_date', thisWednesday)
-        .order('title');
-
-      const section = document.getElementById('store-titles-section');
-      if (!section || !onSale?.length) return;
-
-      section.innerHTML = `
-        <div class="store-this-week">
-          <div class="store-this-week-header">
-            <span>On sale at the store this Wednesday</span>
-            <span class="store-this-week-count">${onSale.length} title${onSale.length !== 1 ? 's' : ''}</span>
-            <a href="catalog.html" class="store-this-week-cta">Browse &amp; reserve →</a>
-          </div>
-          <div class="arrivals-grid">
-            ${onSale.map(c => {
-              const cover = c.cover_url
-                ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(c.title)}" loading="lazy" onerror="this.src=COVER_PLACEHOLDER;this.onerror=null;this.classList.add('loaded');">`
-                : `<img src="${COVER_PLACEHOLDER}" class="loaded" alt="">`;
-              return `
-                <div class="arrival-card">
-                  <div class="arrival-cover">
-                    <span class="arrival-dist-badge badge-${(c.distributor||'').toLowerCase()}">${escapeHtml(c.distributor || '')}</span>
-                    ${cover}
-                  </div>
-                  <div class="arrival-info">
-                    <div class="arrival-title">${escapeHtml(c.title)}</div>
-                    <div class="arrival-price">${formatPrice(c.price_usd)}</div>
-                  </div>
-                </div>`;
-            }).join('')}
-          </div>
-        </div>`;
-
-      section.querySelectorAll('img').forEach(img => {
-        if (img.complete) img.classList.add('loaded');
-        else img.addEventListener('load', () => img.classList.add('loaded'));
-      });
-    })();
-
+      </div>`;
     return;
   }
 
