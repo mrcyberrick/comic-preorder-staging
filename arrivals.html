@@ -313,7 +313,7 @@
   const { data: shipment, error: shipErr } = await db
     .from('weekly_shipment')
     .select(`
-      id, distributor, upc, item_code, title, price_usd, quantity, on_sale_date,
+      id, distributor, upc, item_code, title, price_usd, quantity, cover_url, on_sale_date,
       catalog:catalog_id (
         id, title, series_name, publisher, cover_url, price_usd, distributor, variant_type
       )
@@ -385,13 +385,16 @@
 
   // ── Render cards ──────────────────────────────────────────
   function makeCard(row, reserved) {
-    // Prefer catalog data (has cover, series name, etc.) — fall back to invoice
+    // Prefer catalog data for title/price (richer metadata) — fall back to invoice.
+    // For cover image: prefer shipment cover_url (constructed from barcode — always
+    // available) over catalog cover_url (only present when catalog match found).
     const c       = row.catalog || {};
     const title   = c.title   || row.title;
     const price   = c.price_usd ?? row.price_usd;
     const dist    = c.distributor || row.distributor;
-    const cover   = c.cover_url
-      ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(title)}" loading="lazy"
+    const coverSrc = row.cover_url || c.cover_url;
+    const cover   = coverSrc
+      ? `<img src="${escapeHtml(coverSrc)}" alt="${escapeHtml(title)}" loading="lazy"
              onerror="this.src=COVER_PLACEHOLDER;this.onerror=null;this.classList.add('loaded');">`
       : `<img src="${COVER_PLACEHOLDER}" class="loaded" alt="">`;
 
