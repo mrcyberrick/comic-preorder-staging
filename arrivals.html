@@ -121,14 +121,14 @@
       color: var(--text-muted);
     }
 
-    /* ── Store This Week (empty-state discovery) ───────────── */
-    .store-this-week {
+    /* ── Shipment section (full store shipment) ───────────── */
+    .shipment-section {
       margin-top: 32px;
     }
-    .store-this-week-header {
+    .shipment-divider {
       display: flex;
       align-items: baseline;
-      gap: 8px;
+      gap: 10px;
       font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.08em;
@@ -138,14 +138,14 @@
       margin-bottom: 16px;
       border-bottom: 1px solid var(--border);
     }
-    .store-this-week-count {
-      color: var(--text-secondary);
+    .shipment-divider-count {
       font-weight: 600;
       font-size: 0.75rem;
+      color: var(--text-secondary);
       letter-spacing: 0;
       text-transform: none;
     }
-    .store-this-week-cta {
+    .shipment-divider-cta {
       margin-left: auto;
       font-size: 0.75rem;
       font-weight: 600;
@@ -154,7 +154,17 @@
       color: var(--accent);
       text-decoration: none;
     }
-    .store-this-week-cta:hover { text-decoration: underline; }
+    .shipment-divider-cta:hover { text-decoration: underline; }
+
+    /* Dim cards the customer hasn't reserved */
+    .arrival-card.not-reserved {
+      opacity: 0.72;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+    .arrival-card.not-reserved:hover {
+      opacity: 1;
+      border-color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -271,11 +281,9 @@
   // ── Calculate this Wednesday ──────────────────────────────
   function getThisWednesday() {
     const today = new Date();
-    const day   = today.getDay(); // 0=Sun, 3=Wed
-    const diff  = (3 - day + 7) % 7;
+    const diff  = (3 - today.getDay() + 7) % 7;
     const wed   = new Date(today);
     wed.setDate(today.getDate() + diff);
-    // Use local date parts to avoid UTC shift
     const y = wed.getFullYear();
     const m = String(wed.getMonth() + 1).padStart(2, '0');
     const d = String(wed.getDate()).padStart(2, '0');
@@ -283,8 +291,12 @@
   }
 
   const thisWednesday = getThisWednesday();
+  const [y, m, d] = thisWednesday.split('-').map(Number);
+  const wedDisplay = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+  });
 
-  // ── Fetch preorders and filter to this Wednesday ──────────
+  const container = document.getElementById('arrivals-container');
   const targetUserId = AdminContext.resolveUserId(user.id);
 
   if (AdminContext.isActive()) {
@@ -294,81 +306,151 @@
       'Reserved titles arriving at the store this week';
   }
 
-  const { items, error } = await Preorders.getMy(targetUserId);
-  const container = document.getElementById('arrivals-container');
+  // ── Query 1: weekly_shipment for this Wednesday ───────────
+  // Fetches every title physically shipping to the store this week.
+  // Joins catalog for cover art, publisher, and series name.
+  // Falls back to invoice title/price if no catalog match (catalog_id is null).
+  const { data: shipment, error: shipErr } = await db
+    .from('weekly_shipment')
+    .select(`
+      id, distributor, upc, item_code, title, price_usd, quantity, on_sale_date,
+      catalog:catalog_id (
+        id, title, series_name, publisher, cover_url, price_usd, distributor, variant_type
+      )
+    `)
+    .eq('on_sale_date', thisWednesday)
+    .order('title');
 
-  if (error) {
-    container.innerHTML = `<div class="alert alert-error">Failed to load arrivals: ${escapeHtml(error.message)}</div>`;
+  // ── Query 2: user's preorders for this Wednesday ──────────
+  const { items: preorderItems } = await Preorders.getMy(targetUserId);
+  const myArrivals = (preorderItems || []).filter(i => i.catalog?.on_sale_date === thisWednesday);
+
+  // Build a set of catalog IDs and UPCs the user has reserved
+  // so we can flag them in the full shipment list
+  const myReservedCatalogIds = new Set(myArrivals.map(i => i.catalog_id || i.catalog?.id).filter(Boolean));
+  const myReservedUpcs = new Set(
+    myArrivals.map(i => i.catalog?.upc).filter(Boolean)
+  );
+
+  // ── Decide which mode to render ───────────────────────────
+  // If no weekly shipment has been imported yet, fall back to
+  // the preorder-only view (identical to the original page behavior).
+  const hasShipment = !shipErr && shipment?.length > 0;
+
+  if (!hasShipment) {
+    // ── Fallback: preorder-only (no shipment imported yet) ──
+    document.getElementById('page-subtitle').textContent =
+      `${myArrivals.length} reserved title${myArrivals.length !== 1 ? 's' : ''} arriving ${wedDisplay}`;
+
+    if (!myArrivals.length) {
+      container.innerHTML = `
+        <div class="arrivals-empty">
+          <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:16px;color:var(--text-muted)">
+            <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
+            <path d="M16 3H8L6 7h12l-2-4z"/>
+          </svg>
+          <h2>Nothing arriving this week</h2>
+          <p>Your next arrivals are on a different week — check your <a href="mylist.html" style="color:var(--accent)">full pull list</a>.</p>
+        </div>`;
+      return;
+    }
+
+    renderArrivalsGrid(container, myArrivals.map(i => ({
+      ...i.catalog,
+      _qty: i.quantity,
+      _reserved: true,
+    })));
+    renderPrintTable(myArrivals);
+    setupPrintButton(wedDisplay, myArrivals);
+    document.getElementById('arrivals-toolbar').style.display = 'flex';
     return;
   }
 
-  // Filter to items whose on_sale_date matches this Wednesday
-  const arrivals = items.filter(item => item.catalog?.on_sale_date === thisWednesday);
+  // ── Full shipment mode ────────────────────────────────────
+  // Split shipment into: items the user reserved vs everything else
+  function isReserved(row) {
+    const catId = row.catalog?.id;
+    const upc   = row.upc;
+    return (catId && myReservedCatalogIds.has(catId)) ||
+           (upc  && myReservedUpcs.has(upc));
+  }
 
-  // Format Wednesday for display
-  const [y, m, d] = thisWednesday.split('-').map(Number);
-  const wedDisplay = new Date(y, m - 1, d).toLocaleDateString('en-US', {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-  });
+  const myRows    = shipment.filter(row => isReserved(row));
+  const otherRows = shipment.filter(row => !isReserved(row));
+
+  // Page subtitle reflects what's in the shipment, not just reservations
   document.getElementById('page-subtitle').textContent =
-    `${arrivals.length} reserved title${arrivals.length !== 1 ? 's' : ''} arriving ${wedDisplay}`;
+    `${shipment.length} title${shipment.length !== 1 ? 's' : ''} arriving ${wedDisplay}` +
+    (myRows.length ? ` · ${myRows.length} reserved` : '');
 
-  if (!arrivals.length) {
-    container.innerHTML = `
-      <div class="arrivals-empty">
-        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:16px;color:var(--text-muted)">
-          <path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/>
-          <path d="M16 3H8L6 7h12l-2-4z"/>
-        </svg>
-        <h2>Nothing arriving this week</h2>
-        <p>Your next arrivals are on a different week — check your <a href="mylist.html" style="color:var(--accent)">full pull list</a>.</p>
-      </div>`;
-    return;
-  }
-
-  // Sort alphabetically by title
-  arrivals.sort((a, b) => (a.catalog?.title || '').localeCompare(b.catalog?.title || ''));
-
-  // Populate print table
-  document.getElementById('print-table-body').innerHTML = arrivals.map(item => {
-    const c = item.catalog;
-    const qty = item.quantity || 1;
-    const lineTotal = ((parseFloat(c.price_usd) || 0) * qty).toFixed(2);
-    return `
-      <tr>
-        <td>
-          <div style="font-weight:600">${escapeHtml(c.title)}</div>
-          ${c.series_name ? `<div style="font-size:0.72rem;color:#666">${escapeHtml(c.series_name)}</div>` : ''}
-        </td>
-        <td>${escapeHtml(c.publisher || '—')}</td>
-        <td><span class="badge">${escapeHtml(c.distributor || '')}</span></td>
-        <td>${formatDate(c.on_sale_date)}</td>
-        <td style="text-align:center">${qty}</td>
-        <td style="font-weight:600">${formatPrice(c.price_usd)}</td>
-        <td style="font-weight:600">$${lineTotal}</td>
-      </tr>`;
-  }).join('');
-
-  container.innerHTML = `<div class="arrivals-grid">${arrivals.map(item => {
-    const c = item.catalog;
-    const cover = c.cover_url
-      ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(c.title)}" loading="lazy" onerror="this.src=COVER_PLACEHOLDER;this.onerror=null;this.classList.add('loaded');">`
+  // ── Render cards ──────────────────────────────────────────
+  function makeCard(row, reserved) {
+    // Prefer catalog data (has cover, series name, etc.) — fall back to invoice
+    const c       = row.catalog || {};
+    const title   = c.title   || row.title;
+    const price   = c.price_usd ?? row.price_usd;
+    const dist    = c.distributor || row.distributor;
+    const cover   = c.cover_url
+      ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(title)}" loading="lazy"
+             onerror="this.src=COVER_PLACEHOLDER;this.onerror=null;this.classList.add('loaded');">`
       : `<img src="${COVER_PLACEHOLDER}" class="loaded" alt="">`;
 
     return `
-      <div class="arrival-card">
+      <div class="arrival-card${reserved ? '' : ' not-reserved'}">
         <div class="arrival-cover">
-          <span class="arrival-dist-badge badge-${c.distributor?.toLowerCase()}">${escapeHtml(c.distributor || '')}</span>
+          <span class="arrival-dist-badge badge-${(dist||'').toLowerCase()}">${escapeHtml(dist||'')}</span>
           ${cover}
         </div>
         <div class="arrival-info">
-          <div class="arrival-title">${escapeHtml(c.title)}</div>
-          ${item.quantity > 1 ? `<div class="arrival-qty">Qty: ${item.quantity}</div>` : ''}
-          <div class="arrival-price">${formatPrice(c.price_usd)}</div>
+          <div class="arrival-title">${escapeHtml(title)}</div>
+          ${reserved && row._qty > 1 ? `<div class="arrival-qty">Qty: ${row._qty}</div>` : ''}
+          <div class="arrival-price">${formatPrice(price)}</div>
         </div>
+      </div>`;
+  }
+
+  let html = '';
+
+  if (myRows.length) {
+    html += `
+      <div class="shipment-divider">
+        <span>Your reserved titles</span>
+        <span class="shipment-divider-count">${myRows.length} item${myRows.length !== 1 ? 's' : ''}</span>
       </div>
-    `;
-  }).join('')}</div>`;
+      <div class="arrivals-grid" style="margin-bottom:32px">
+        ${myRows.map(r => {
+          // Find matching preorder for quantity
+          const po = myArrivals.find(i =>
+            (i.catalog?.id && i.catalog.id === r.catalog?.id) ||
+            (i.catalog?.upc && i.catalog.upc === r.upc)
+          );
+          r._qty = po?.quantity || r.quantity;
+          return makeCard(r, true);
+        }).join('')}
+      </div>`;
+  }
+
+  if (otherRows.length) {
+    html += `
+      <div class="shipment-divider">
+        <span>Also in this week's shipment</span>
+        <span class="shipment-divider-count">${otherRows.length} title${otherRows.length !== 1 ? 's' : ''}</span>
+        <a href="catalog.html" class="shipment-divider-cta">Reserve in catalog →</a>
+      </div>
+      <div class="arrivals-grid">
+        ${otherRows.map(r => makeCard(r, false)).join('')}
+      </div>`;
+  }
+
+  if (!myRows.length && !otherRows.length) {
+    html = `
+      <div class="arrivals-empty">
+        <h2>Nothing in this week's shipment yet</h2>
+        <p>Check back after the weekly invoice is imported.</p>
+      </div>`;
+  }
+
+  container.innerHTML = html;
 
   // Fade in images
   container.querySelectorAll('img').forEach(img => {
@@ -376,29 +458,79 @@
     else img.addEventListener('load', () => img.classList.add('loaded'));
   });
 
-  // Show toolbar once items are loaded
-  document.getElementById('arrivals-toolbar').style.display = 'flex';
+  // ── Print table (reserved items only) ────────────────────
+  renderPrintTable(myArrivals);
+  setupPrintButton(wedDisplay, myArrivals);
+  if (myRows.length || myArrivals.length) {
+    document.getElementById('arrivals-toolbar').style.display = 'flex';
+  }
 
-  // Populate print footer
-  const total = arrivals.reduce((s, i) => s + ((parseFloat(i.catalog?.price_usd) || 0) * (i.quantity || 1)), 0);
-  document.getElementById('print-footer-count').textContent =
-    `${arrivals.length} item${arrivals.length !== 1 ? 's' : ''} arriving this week`;
-  document.getElementById('print-footer-total').textContent =
-    `Estimated Total: $${total.toFixed(2)}`;
+  // ── Helpers ───────────────────────────────────────────────
+  function renderArrivalsGrid(el, items) {
+    el.innerHTML = `<div class="arrivals-grid">${items.map(c => {
+      const cover = c.cover_url
+        ? `<img src="${escapeHtml(c.cover_url)}" alt="${escapeHtml(c.title)}" loading="lazy"
+               onerror="this.src=COVER_PLACEHOLDER;this.onerror=null;this.classList.add('loaded');">`
+        : `<img src="${COVER_PLACEHOLDER}" class="loaded" alt="">`;
+      return `
+        <div class="arrival-card">
+          <div class="arrival-cover">
+            <span class="arrival-dist-badge badge-${(c.distributor||'').toLowerCase()}">${escapeHtml(c.distributor||'')}</span>
+            ${cover}
+          </div>
+          <div class="arrival-info">
+            <div class="arrival-title">${escapeHtml(c.title)}</div>
+            ${c._qty > 1 ? `<div class="arrival-qty">Qty: ${c._qty}</div>` : ''}
+            <div class="arrival-price">${formatPrice(c.price_usd)}</div>
+          </div>
+        </div>`;
+    }).join('')}</div>`;
+    el.querySelectorAll('img').forEach(img => {
+      if (img.complete) img.classList.add('loaded');
+      else img.addEventListener('load', () => img.classList.add('loaded'));
+    });
+  }
 
-  // Print button
-  document.getElementById('btn-print').addEventListener('click', () => {
-    const listOwner = AdminContext.isActive()
-      ? AdminContext.activeUserName
-      : document.getElementById('nav-username').textContent;
-    document.getElementById('print-title').textContent  = listOwner + "'s This Week Arrivals";
-    document.getElementById('print-subtitle').textContent = wedDisplay;
-    document.getElementById('print-date').textContent =
-      'Printed: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    window.print();
-  });
+  function renderPrintTable(arrivals) {
+    document.getElementById('print-table-body').innerHTML = arrivals.map(item => {
+      const c = item.catalog;
+      const qty = item.quantity || 1;
+      const lineTotal = ((parseFloat(c.price_usd) || 0) * qty).toFixed(2);
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600">${escapeHtml(c.title)}</div>
+            ${c.series_name ? `<div style="font-size:0.72rem;color:#666">${escapeHtml(c.series_name)}</div>` : ''}
+          </td>
+          <td>${escapeHtml(c.publisher || '—')}</td>
+          <td><span class="badge">${escapeHtml(c.distributor || '')}</span></td>
+          <td>${formatDate(c.on_sale_date)}</td>
+          <td style="text-align:center">${qty}</td>
+          <td style="font-weight:600">${formatPrice(c.price_usd)}</td>
+          <td style="font-weight:600">$${lineTotal}</td>
+        </tr>`;
+    }).join('');
 
+    const total = arrivals.reduce((s, i) =>
+      s + ((parseFloat(i.catalog?.price_usd) || 0) * (i.quantity || 1)), 0);
+    document.getElementById('print-footer-count').textContent =
+      `${arrivals.length} item${arrivals.length !== 1 ? 's' : ''} reserved this week`;
+    document.getElementById('print-footer-total').textContent =
+      `Estimated Total: $${total.toFixed(2)}`;
+  }
 
+  function setupPrintButton(displayDate, arrivals) {
+    document.getElementById('btn-print').addEventListener('click', () => {
+      const listOwner = AdminContext.isActive()
+        ? AdminContext.activeUserName
+        : document.getElementById('nav-username').textContent;
+      document.getElementById('print-title').textContent  = listOwner + "'s This Week Arrivals";
+      document.getElementById('print-subtitle').textContent = displayDate;
+      document.getElementById('print-date').textContent =
+        'Printed: ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      window.print();
+    });
+  }
 
 })();
 </script>
