@@ -378,10 +378,10 @@
   const myRows    = shipment.filter(row => isReserved(row));
   const otherRows = shipment.filter(row => !isReserved(row));
 
-  // Page subtitle reflects what's in the shipment, not just reservations
-  document.getElementById('page-subtitle').textContent =
-    `${shipment.length} title${shipment.length !== 1 ? 's' : ''} arriving ${wedDisplay}` +
-    (myRows.length ? ` · ${myRows.length} reserved` : '');
+  // Page subtitle: personal count only, with store shipment count as secondary context
+  document.getElementById('page-subtitle').textContent = myRows.length
+    ? `${myRows.length} reserved title${myRows.length !== 1 ? 's' : ''} arriving ${wedDisplay}`
+    : `Nothing reserved this week · ${shipment.length} title${shipment.length !== 1 ? 's' : ''} in store shipment`;
 
   // ── Render cards ──────────────────────────────────────────
   function makeCard(row, reserved) {
@@ -434,9 +434,10 @@
   }
 
   if (otherRows.length) {
+    const hasPersonalSection = myRows.length > 0;
     html += `
       <div class="shipment-divider">
-        <span>Also in this week's shipment</span>
+        <span>${hasPersonalSection ? 'Also in this week\'s shipment' : 'This week\'s store shipment'}</span>
         <span class="shipment-divider-count">${otherRows.length} title${otherRows.length !== 1 ? 's' : ''}</span>
         <a href="catalog.html" class="shipment-divider-cta">Reserve in catalog →</a>
       </div>
