@@ -605,7 +605,8 @@
       }
       btn.addEventListener('click', e => {
         e.stopPropagation();
-        toggleReserve(btn.dataset.id, btn);
+        const comic = allItems.find(c => c.id === btn.dataset.id) || null;
+        toggleReserve(btn.dataset.id, btn, 1, comic);
       });
     });
   }
@@ -636,9 +637,13 @@
   }
 
   // ── Reserve Toggle ────────────────────────────────────────
-  async function toggleReserve(catalogId, btn, quantity = 1) {
+  // comic is the full catalog row — passed directly from the call site so
+  // logging metadata is always available regardless of which page is loaded.
+  async function toggleReserve(catalogId, btn, quantity = 1, comic = null) {
     const isReserved = reservedIds.has(catalogId);
     const targetUserId = AdminContext.resolveUserId(user.id);
+    // Fall back to allItems lookup if comic not passed (defensive)
+    const comicObj = comic || allItems.find(c => c.id === catalogId) || null;
     btn.disabled = true;
 
     if (isReserved) {
@@ -654,7 +659,7 @@
         if (badge) badge.remove();
         toast('Reservation cancelled');
         updateReservedStat();
-        UsageEvents.cancel(user.id, allItems.find(c => c.id === catalogId));
+        UsageEvents.cancel(user.id, comicObj);
       }
     } else {
       const { error } = await Preorders.reserve(targetUserId, catalogId, quantity);
@@ -674,7 +679,7 @@
         }
         toast('Reserved! Please pick up and pay when it arrives in store.');
         updateReservedStat();
-        UsageEvents.reserve(user.id, allItems.find(c => c.id === catalogId));
+        UsageEvents.reserve(user.id, comicObj);
       }
     }
 
@@ -794,7 +799,7 @@
       reserveBtn.onclick = () => {
         const qty     = parseInt(qtyInput.value) || 1;
         const cardBtn = grid.querySelector(`.btn-reserve[data-id="${catalogId}"]`);
-        toggleReserve(catalogId, reserveBtn, qty);
+        toggleReserve(catalogId, reserveBtn, qty, comic);
         if (cardBtn) {
           setTimeout(() => {
             const nowReserved = reservedIds.has(catalogId);
