@@ -542,6 +542,11 @@
     });
   }
 
+  // Log page view — real customer sessions only, includes which Wednesday was viewed
+  if (!profile?.is_admin && !AdminContext.isActive()) {
+    UsageEvents.pageView(user.id, 'arrivals', { on_sale_date: thisWednesday });
+  }
+
 })();
 </script>
 </body>

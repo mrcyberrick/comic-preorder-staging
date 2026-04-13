@@ -416,6 +416,11 @@ const UsageEvents = {
     });
   },
 
+  pageView(userId, page, metadata = {}) {
+    // page: 'mylist' | 'arrivals' | 'subscriptions'
+    this._log(userId, 'page_view', { page, ...metadata });
+  },
+
   login(userId) {
     // Logged immediately after successful sign-in, before redirect
     this._log(userId, 'login');

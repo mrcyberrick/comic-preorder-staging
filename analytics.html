@@ -165,6 +165,7 @@
     .badge-subscribe   { background: rgba(59,130,246,0.15); color: #60a5fa; }
     .badge-unsubscribe { background: rgba(168,85,247,0.15); color: #c084fc; }
     .badge-catalog_view { background: rgba(234,179,8,0.12); color: #facc15; }
+    .badge-page_view    { background: rgba(20,184,166,0.12); color: #2dd4bf; }
     .badge-login       { background: rgba(255,255,255,0.08); color: var(--text-muted); }
     .badge-logout      { background: rgba(255,255,255,0.05); color: var(--text-muted); }
 
@@ -303,6 +304,7 @@
     <div class="pill"><div class="pill-value" id="pill-subscribes">—</div><div class="pill-label">New Subscriptions</div></div>
     <div class="pill"><div class="pill-value" id="pill-logins">—</div><div class="pill-label">Logins</div></div>
     <div class="pill"><div class="pill-value" id="pill-views">—</div><div class="pill-label">Catalog Views</div></div>
+    <div class="pill"><div class="pill-value" id="pill-page-views">—</div><div class="pill-label">Other Page Views</div></div>
     <div class="pill"><div class="pill-value" id="pill-active-users">—</div><div class="pill-label">Active Users</div></div>
   </div>
 
@@ -400,7 +402,7 @@
     const { data, error } = await q;
     if (error || !data) return;
 
-    const counts = { reserve: 0, cancel: 0, subscribe: 0, login: 0, catalog_view: 0 };
+    const counts = { reserve: 0, cancel: 0, subscribe: 0, login: 0, catalog_view: 0, page_view: 0 };
     const activeUsers = new Set();
     data.forEach(e => {
       if (counts[e.event_type] !== undefined) counts[e.event_type]++;
@@ -412,6 +414,7 @@
     document.getElementById('pill-subscribes').textContent  = counts.subscribe;
     document.getElementById('pill-logins').textContent      = counts.login;
     document.getElementById('pill-views').textContent       = counts.catalog_view;
+    document.getElementById('pill-page-views').textContent  = counts.page_view;
     document.getElementById('pill-active-users').textContent = activeUsers.size;
   }
 
@@ -562,7 +565,7 @@
       if (!e.user_id) return;
       if (!map[e.user_id]) map[e.user_id] = {
         user_id: e.user_id, name: nameMap[e.user_id] || 'Unknown',
-        reserves: 0, cancels: 0, subscribes: 0, logins: 0, catalog_views: 0, last_seen: null
+        reserves: 0, cancels: 0, subscribes: 0, logins: 0, catalog_views: 0, page_views: 0, last_seen: null
       };
       const u = map[e.user_id];
       if (e.event_type === 'reserve')       u.reserves++;
@@ -570,6 +573,7 @@
       if (e.event_type === 'subscribe')     u.subscribes++;
       if (e.event_type === 'login')         u.logins++;
       if (e.event_type === 'catalog_view')  u.catalog_views++;
+      if (e.event_type === 'page_view')     u.page_views++;
       if (!u.last_seen || e.created_at > u.last_seen) u.last_seen = e.created_at;
     });
 
@@ -587,6 +591,7 @@
             <th class="right">Subscribes</th>
             <th class="right">Logins</th>
             <th class="right">Catalog Views</th>
+            <th class="right">Page Views</th>
             <th>Last Seen</th>
           </tr>
         </thead>
@@ -599,6 +604,7 @@
               <td class="right" style="color:var(--lunar,#3b82f6)">${u.subscribes}</td>
               <td class="right">${u.logins}</td>
               <td class="right">${u.catalog_views}</td>
+              <td class="right">${u.page_views}</td>
               <td class="muted">${u.last_seen ? formatDate(u.last_seen.split('T')[0]) : '—'}</td>
             </tr>
           `).join('')}
@@ -673,6 +679,11 @@
           m.search        ? `search: "${m.search}"`     : null,
           m.page > 1      ? `page ${m.page}`            : null,
         ].filter(Boolean).join(', ') || 'catalog');
+      case 'page_view':
+        return escapeHtml([
+          m.page                ? m.page          : null,
+          m.on_sale_date        ? m.on_sale_date   : null,
+        ].filter(Boolean).join(' · ') || '—');
       default:
         return '—';
     }

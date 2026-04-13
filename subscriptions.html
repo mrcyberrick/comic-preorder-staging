@@ -551,6 +551,11 @@
       resultsPanel.style.display = 'none';
     }
   });
+
+  // Log page view — real customer sessions only
+  if (!profile?.is_admin && !AdminContext.isActive()) {
+    UsageEvents.pageView(user.id, 'subscriptions');
+  }
 })();
 </script>
 </body>
