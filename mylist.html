@@ -1124,6 +1124,11 @@
   await loadList();
   renderArrivingThisMonth();
   await loadMySubscriptions();
+
+  // Log page view — real customer sessions only
+  if (!profile?.is_admin && !AdminContext.isActive()) {
+    UsageEvents.pageView(user.id, 'mylist');
+  }
 })();
 </script>
 </body>
