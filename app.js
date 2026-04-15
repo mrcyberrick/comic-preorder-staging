@@ -668,6 +668,73 @@ const Users = {
   },
 };
 
+// ── Paper Customers (Admin) ───────────────────────────────────
+// Paper customers are admin-managed accounts for walk-in/phone customers
+// whose orders are placed on their behalf. They use placeholder emails
+// (@paper.pulllist.local) that are never delivered, and never log in.
+//
+// Requires:
+//   1. ALTER TABLE user_profiles ADD COLUMN is_paper boolean DEFAULT false;
+//   2. A "create-paper-customer" Supabase Edge Function (service role)
+//      that accepts { name, email }, creates the auth user, inserts the
+//      profile with is_paper=true, and returns { user_id, email }.
+//      It must NOT send any email.
+//   3. A "claim_paper_account(paper_user_id, real_user_id)" SQL RPC
+//      that reassigns all preorders/subscriptions and deletes the paper user.
+//   4. The notify-customers Edge Function must skip emails ending in
+//      '@paper.pulllist.local'.
+const PaperCustomers = {
+  // Generate a unique placeholder email from a display name.
+  // The timestamp suffix prevents collisions between customers with the same name.
+  generateEmail(fullName) {
+    const slug = fullName.toLowerCase()
+      .replace(/[^a-z0-9]/g, '.')
+      .replace(/\.+/g, '.')
+      .replace(/^\.|\.$/g, '');
+    const ts = Date.now().toString(36);
+    return `${slug}.${ts}@paper.pulllist.local`;
+  },
+
+  // Create a paper customer — calls the create-paper-customer Edge Function.
+  // The edge function uses the service role key to create the auth user,
+  // so it bypasses RLS. Returns { data: { user_id, email } } or { error }.
+  async create(name, sessionToken) {
+    const email = this.generateEmail(name);
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/create-paper-customer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${sessionToken}`,
+        'apikey':        SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ name, email }),
+    });
+    const result = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { error: result.error || `HTTP ${resp.status}` };
+    return { data: result }; // { user_id, email }
+  },
+
+  // List all paper customers, sorted by name.
+  async list() {
+    const { data, error } = await db
+      .from('user_profiles')
+      .select('id, full_name, created_at')
+      .eq('is_paper', true)
+      .order('full_name', { ascending: true });
+    return { items: data || [], error };
+  },
+
+  // Merge a paper account's preorder history into a real (self-registered) account,
+  // then delete the paper account. Calls the claim_paper_account SQL function.
+  async claim(paperUserId, realUserId) {
+    const { error } = await db.rpc('claim_paper_account', {
+      paper_user_id: paperUserId,
+      real_user_id:  realUserId,
+    });
+    return { error };
+  },
+};
+
 const Recommendations = {
 
   // Returns a Set of "series_name||distributor" keys the user has ever reserved.

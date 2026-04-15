@@ -58,6 +58,9 @@
       /* Data tables: allow horizontal scroll */
       .list-table { min-width: 600px; }
       .admin-section { overflow-x: auto; }
+
+      /* Paper Orders: stack the two top panels on mobile */
+      #paper-top-grid { grid-template-columns: 1fr !important; }
     }
   </style>
 </head>
@@ -161,6 +164,7 @@
     <button class="admin-tab" data-tab="subscriptions">Subscriptions</button>
     <button class="admin-tab" data-tab="top-series">Top Series</button>
     <button class="admin-tab" data-tab="pending" id="tab-btn-pending">Pending <span id="pending-badge" style="display:none;background:var(--accent);color:#fff;font-size:0.65rem;font-weight:700;padding:1px 6px;border-radius:8px;margin-left:4px;vertical-align:middle"></span></button>
+    <button class="admin-tab" data-tab="paper-orders">Paper Orders</button>
   </div>
 
   <!-- Tab: By Customer -->
@@ -244,6 +248,77 @@
     <div id="top-series-list">
       <div class="empty-state"><p>Loading…</p></div>
     </div>
+  </div>
+
+  <!-- Tab: Paper Orders -->
+  <div class="admin-section" id="tab-paper-orders">
+
+    <!-- Top bar: create customer + search side by side on wide screens -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px" id="paper-top-grid">
+
+      <!-- Create paper customer -->
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Add Paper Customer</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="paper-new-name" type="text" placeholder="Customer name"
+            style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);
+                   color:var(--text-primary);padding:8px 12px;border-radius:var(--radius);
+                   font-size:0.85rem;min-width:0">
+          <button class="btn btn-primary btn-sm" id="paper-create-btn">Add</button>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;line-height:1.5">
+          A placeholder account is created — no email sent, no login required.
+        </div>
+      </div>
+
+      <!-- Catalog search -->
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Add Title to Order</div>
+        <div style="position:relative">
+          <input id="paper-catalog-search" type="text" placeholder="Search catalog by title, series, writer…"
+            style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);
+                   color:var(--text-primary);padding:8px 12px;border-radius:var(--radius);
+                   font-size:0.85rem;box-sizing:border-box">
+          <div id="paper-search-results" style="
+            position:absolute;top:100%;left:0;right:0;z-index:50;
+            background:var(--bg-card);border:1px solid var(--border);
+            border-radius:var(--radius);margin-top:2px;
+            max-height:240px;overflow-y:auto;
+            box-shadow:0 8px 24px rgba(0,0,0,0.4);
+          "></div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;line-height:1.5">
+          Click a result to add it to the pending order below.
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending orders list -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted)">Pending Order</div>
+        <button class="btn btn-primary btn-sm" id="paper-submit-btn" disabled>Submit Reservations</button>
+      </div>
+      <div id="paper-pending-list">
+        <div style="color:var(--text-muted);font-size:0.85rem;padding:12px 0">
+          Search for a title above to start building the order.
+        </div>
+      </div>
+    </div>
+
+    <!-- Paper customer list -->
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted)">Paper Customers</div>
+        <div style="font-size:0.78rem;color:var(--text-muted)">
+          <strong>Manage</strong> opens their pull list · <strong>Claim</strong> merges history when they go digital
+        </div>
+      </div>
+      <div id="paper-customer-list">
+        <p style="color:var(--text-muted);font-size:0.82rem">Loading…</p>
+      </div>
+    </div>
+
   </div>
 
 </div>
@@ -1293,6 +1368,344 @@
 
   // Tab click also reloads
   document.querySelector('[data-tab="pending"]').addEventListener('click', loadPendingAccounts);
+
+
+  // ── Paper Orders Tab ──────────────────────────────────────
+  let paperCusts   = [];             // [{ id, full_name, created_at }]
+  const pendingOrders = new Map();   // catalogId → { catalog, customerIds: Set }
+
+  async function initPaperOrdersTab() {
+    await refreshPaperCusts();
+    renderPaperCustomerList();
+    renderPendingOrders();
+  }
+
+  async function refreshPaperCusts() {
+    const { items } = await PaperCustomers.list();
+    paperCusts = items;
+  }
+
+  // ── Create customer ──────────────────────────────────────
+  document.getElementById('paper-create-btn').addEventListener('click', async () => {
+    const nameInput = document.getElementById('paper-new-name');
+    const name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+
+    const btn = document.getElementById('paper-create-btn');
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+
+    const { data: sessionData } = await db.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) { toast('Session expired — sign out and back in', 'error'); btn.disabled=false; btn.textContent='Add'; return; }
+
+    const { data, error } = await PaperCustomers.create(name, token);
+    if (error) {
+      toast(`Could not create customer: ${error}`, 'error');
+    } else {
+      nameInput.value = '';
+      toast(`${name} added`);
+      await refreshPaperCusts();
+      renderPaperCustomerList();
+      renderPendingOrders(); // refresh customer dropdowns on existing rows
+    }
+    btn.disabled = false;
+    btn.textContent = 'Add';
+  });
+
+  document.getElementById('paper-new-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('paper-create-btn').click();
+  });
+
+  // ── Catalog search typeahead ─────────────────────────────
+  let _paperSearchTimer;
+  document.getElementById('paper-catalog-search').addEventListener('input', e => {
+    const q = e.target.value.trim();
+    clearTimeout(_paperSearchTimer);
+    const resultsEl = document.getElementById('paper-search-results');
+    if (q.length < 2) { resultsEl.innerHTML = ''; return; }
+    _paperSearchTimer = setTimeout(async () => {
+      const { items } = await Catalog.fetch({ search: q, pageSize: 8 });
+      renderCatalogTypeahead(items);
+    }, 280);
+  });
+
+  // Close typeahead when clicking outside
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#paper-catalog-search') && !e.target.closest('#paper-search-results')) {
+      document.getElementById('paper-search-results').innerHTML = '';
+    }
+  });
+
+  function renderCatalogTypeahead(items) {
+    const el = document.getElementById('paper-search-results');
+    if (!items.length) {
+      el.innerHTML = '<div style="padding:10px 12px;color:var(--text-muted);font-size:0.82rem">No results</div>';
+      return;
+    }
+    el.innerHTML = items.map((c, i) => `
+      <div class="paper-search-result" data-idx="${i}" style="
+        padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;
+        ${i < items.length - 1 ? 'border-bottom:1px solid var(--border);' : ''}
+      ">
+        ${c.cover_url
+          ? `<img src="${escapeHtml(c.cover_url)}" style="width:28px;height:42px;object-fit:cover;border-radius:2px;flex-shrink:0">`
+          : '<div style="width:28px;height:42px;background:var(--bg-elevated);border-radius:2px;flex-shrink:0"></div>'}
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${escapeHtml(c.title)}
+          </div>
+          <div style="font-size:0.72rem;color:var(--text-muted)">
+            ${escapeHtml(c.publisher || '')} · ${formatPrice(c.price_usd)}
+            &nbsp;<span class="badge badge-${(c.distributor||'').toLowerCase()}">${escapeHtml(c.distributor)}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    el.querySelectorAll('.paper-search-result').forEach((row, i) => {
+      row.addEventListener('mouseenter', () => row.style.background = 'var(--bg-elevated)');
+      row.addEventListener('mouseleave', () => row.style.background = '');
+      row.addEventListener('click', () => {
+        const c = items[i];
+        if (c && !pendingOrders.has(c.id)) {
+          pendingOrders.set(c.id, { catalog: c, customerIds: new Set() });
+          renderPendingOrders();
+        }
+        document.getElementById('paper-catalog-search').value = '';
+        el.innerHTML = '';
+      });
+    });
+  }
+
+  // ── Pending orders list ──────────────────────────────────
+  function renderPendingOrders() {
+    const container = document.getElementById('paper-pending-list');
+    const submitBtn = document.getElementById('paper-submit-btn');
+
+    if (!pendingOrders.size) {
+      container.innerHTML = `<div style="color:var(--text-muted);font-size:0.85rem;padding:12px 0">
+        Search for a title above to start building the order.</div>`;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submit Reservations';
+      return;
+    }
+
+    let totalReservations = 0;
+
+    container.innerHTML = [...pendingOrders.entries()].map(([catId, { catalog: c, customerIds }]) => {
+      totalReservations += customerIds.size;
+
+      const tags = [...customerIds].map(uid => {
+        const cust = paperCusts.find(pc => pc.id === uid);
+        return `<span style="
+          display:inline-flex;align-items:center;gap:5px;
+          background:var(--bg-elevated);border:1px solid var(--border);
+          border-radius:4px;padding:3px 8px;font-size:0.75rem;font-weight:500;
+          white-space:nowrap
+        ">
+          ${escapeHtml(cust?.full_name || '?')}
+          <button class="paper-remove-cust" data-cat="${catId}" data-uid="${uid}"
+            style="background:none;border:none;cursor:pointer;color:var(--text-muted);
+                   font-size:0.8rem;padding:0;line-height:1" title="Remove">✕</button>
+        </span>`;
+      }).join('');
+
+      const availCusts = paperCusts.filter(pc => !customerIds.has(pc.id));
+      const selectHtml = availCusts.length
+        ? `<select class="paper-add-cust-select" data-cat="${catId}" style="
+            background:var(--bg-elevated);border:1px solid var(--border);
+            color:var(--text-secondary);border-radius:4px;padding:3px 8px;
+            font-size:0.75rem;cursor:pointer;max-width:160px">
+            <option value="">+ Add customer…</option>
+            ${availCusts.map(pc => `<option value="${pc.id}">${escapeHtml(pc.full_name)}</option>`).join('')}
+          </select>`
+        : (paperCusts.length
+            ? '<span style="font-size:0.72rem;color:var(--text-muted)">All customers added</span>'
+            : '<span style="font-size:0.72rem;color:var(--text-muted)">No paper customers yet</span>');
+
+      return `
+        <div style="
+          display:flex;align-items:flex-start;gap:12px;padding:12px;
+          background:var(--bg-elevated);border:1px solid var(--border);
+          border-radius:var(--radius);margin-bottom:8px
+        ">
+          ${c.cover_url
+            ? `<img src="${escapeHtml(c.cover_url)}" style="width:36px;height:54px;object-fit:cover;border-radius:2px;flex-shrink:0">`
+            : '<div style="width:36px;height:54px;background:var(--bg-card);border-radius:2px;flex-shrink:0"></div>'}
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:0.85rem;margin-bottom:2px">${escapeHtml(c.title)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px">
+              ${escapeHtml(c.publisher || '')} · ${formatPrice(c.price_usd)}
+              &nbsp;<span class="badge badge-${(c.distributor||'').toLowerCase()}">${escapeHtml(c.distributor)}</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+              ${tags}${selectHtml}
+            </div>
+          </div>
+          <button class="paper-remove-title" data-cat="${catId}"
+            style="background:none;border:none;cursor:pointer;color:var(--text-muted);
+                   font-size:1.1rem;padding:2px 4px;flex-shrink:0;line-height:1"
+            title="Remove title">✕</button>
+        </div>`;
+    }).join('');
+
+    // Remove title
+    container.querySelectorAll('.paper-remove-title').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pendingOrders.delete(btn.dataset.cat);
+        renderPendingOrders();
+      });
+    });
+
+    // Add customer from select
+    container.querySelectorAll('.paper-add-cust-select').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const uid = sel.value;
+        if (!uid) return;
+        const order = pendingOrders.get(sel.dataset.cat);
+        if (order) { order.customerIds.add(uid); renderPendingOrders(); }
+      });
+    });
+
+    // Remove customer tag
+    container.querySelectorAll('.paper-remove-cust').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const order = pendingOrders.get(btn.dataset.cat);
+        if (order) { order.customerIds.delete(btn.dataset.uid); renderPendingOrders(); }
+      });
+    });
+
+    const anyAssigned = [...pendingOrders.values()].some(o => o.customerIds.size > 0);
+    submitBtn.disabled = !anyAssigned;
+    submitBtn.textContent = totalReservations > 0
+      ? `Submit ${totalReservations} Reservation${totalReservations !== 1 ? 's' : ''}`
+      : 'Submit Reservations';
+  }
+
+  // ── Paper customer list ──────────────────────────────────
+  function renderPaperCustomerList() {
+    const container = document.getElementById('paper-customer-list');
+    if (!paperCusts.length) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;margin:0">No paper customers yet. Add one above.</p>';
+      return;
+    }
+    container.innerHTML = `
+      <table class="list-table" style="min-width:420px">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Added</th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${paperCusts.map(pc => `
+            <tr>
+              <td style="font-weight:600">${escapeHtml(pc.full_name)}</td>
+              <td style="font-size:0.78rem;color:var(--text-muted)">${formatDate(pc.created_at?.split('T')[0])}</td>
+              <td style="text-align:right">
+                <div style="display:flex;gap:8px;justify-content:flex-end">
+                  <button class="btn btn-secondary btn-sm paper-manage-btn"
+                    data-id="${pc.id}" data-name="${escapeHtml(pc.full_name)}">
+                    Manage Pull List
+                  </button>
+                  <button class="btn btn-ghost btn-sm paper-claim-btn"
+                    data-id="${pc.id}" data-name="${escapeHtml(pc.full_name)}"
+                    style="color:var(--text-muted)" title="Merge into a real account when customer goes digital">
+                    Claim…
+                  </button>
+                </div>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+
+    // Manage: set AdminContext then go to catalog to enter orders on their behalf
+    container.querySelectorAll('.paper-manage-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        AdminContext.set(btn.dataset.id, btn.dataset.name);
+        window.location.href = 'catalog.html';
+      });
+    });
+
+    // Claim: merge paper account into a real account
+    container.querySelectorAll('.paper-claim-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const realId = prompt(
+          `Merge "${btn.dataset.name}" into a real customer account.\n\n` +
+          `Paste the real customer's user UUID.\n` +
+          `(Find it in Supabase → Authentication → Users)`
+        );
+        if (!realId?.trim()) return;
+        if (!confirm(
+          `This will move all of ${btn.dataset.name}'s preorders and subscriptions ` +
+          `to the real account and permanently delete the paper account.\n\nContinue?`
+        )) return;
+
+        const { error } = await PaperCustomers.claim(btn.dataset.id, realId.trim());
+        if (error) {
+          toast(`Claim failed: ${error.message}`, 'error');
+        } else {
+          toast(`✓ ${btn.dataset.name}'s history merged — paper account removed`);
+          await refreshPaperCusts();
+          renderPaperCustomerList();
+          renderPendingOrders();
+          await loadData(); // refresh main dashboard customer count
+        }
+      });
+    });
+  }
+
+  // ── Submit pending reservations ──────────────────────────
+  document.getElementById('paper-submit-btn').addEventListener('click', async () => {
+    const pairs = [];
+    for (const [catId, { customerIds }] of pendingOrders) {
+      for (const uid of customerIds) pairs.push({ userId: uid, catalogId: catId });
+    }
+    if (!pairs.length) return;
+
+    const btn = document.getElementById('paper-submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    let succeeded = 0;
+    let skipped   = 0;
+    let failed    = 0;
+
+    for (const { userId, catalogId } of pairs) {
+      const { error } = await Preorders.reserve(userId, catalogId);
+      if (!error) {
+        succeeded++;
+      } else if (error.code === '23505') {
+        skipped++; // unique constraint — reservation already exists, safe to skip
+      } else {
+        failed++;
+        console.error('Paper reserve failed:', error);
+      }
+    }
+
+    pendingOrders.clear();
+    renderPendingOrders();
+    await loadData(); // refresh dashboard stats and By Customer view
+
+    const parts = [
+      succeeded ? `${succeeded} reserved` : '',
+      skipped   ? `${skipped} already existed` : '',
+      failed    ? `${failed} failed` : '',
+    ].filter(Boolean).join(', ');
+
+    toast(failed ? `Done with issues: ${parts}` : `✓ ${parts}`, failed ? 'error' : 'success');
+    btn.disabled = false;
+  });
+
+  // ── Load tab on first click ──────────────────────────────
+  document.querySelector('[data-tab="paper-orders"]').addEventListener('click', () => {
+    if (!document.getElementById('paper-customer-list').dataset.loaded) {
+      initPaperOrdersTab();
+      document.getElementById('paper-customer-list').dataset.loaded = '1';
+    }
+  });
 
 
 })();
