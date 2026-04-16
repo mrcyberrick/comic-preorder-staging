@@ -1787,8 +1787,6 @@
           <td class="col-qty"><div class="qty-box"></div></td>
           <td class="col-title">
             ${escapeHtml(c.title || '—')}
-            ${c.series_name && c.series_name !== c.title
-              ? `<div class="series">${escapeHtml(c.series_name)}</div>` : ''}
             ${variantNote}
           </td>
           <td class="col-pub">${escapeHtml(c.publisher || '—')}</td>
@@ -1803,166 +1801,185 @@
   <meta charset="UTF-8">
   <title>${distributor} Order Sheet — ${monthLabel}</title>
   <style>
-    /* ── Reset ── */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* ── Page setup ── */
-    /* Landscape fits all 6 columns comfortably */
+    /* ── Portrait letter, tight margins, footer margin boxes ── */
+    /* Content width: 8.5in − 0.7in = 7.8in                     */
+    /* Content height: 11in − 0.75in = 10.25in usable           */
+    /* At 7.5pt rows (~12px) + 4px padding = ~18px/row           */
+    /* ≈ 55–60 data rows per page depending on title wrap         */
     @page {
-      size: letter landscape;
-      margin: 0.55in 0.6in 0.65in 0.6in;
-      /* Page X of Y footer in the bottom margin */
+      size: letter portrait;
+      margin: 0.4in 0.35in 0.5in 0.35in;
       @bottom-left {
         content: "Printed ${printDate}";
         font-family: Arial, sans-serif;
-        font-size: 7.5pt;
-        color: #888;
+        font-size: 6.5pt;
+        color: #999;
       }
       @bottom-center {
         content: "Page " counter(page) " of " counter(pages);
         font-family: Arial, sans-serif;
-        font-size: 7.5pt;
+        font-size: 6.5pt;
         color: #444;
-        font-weight: 600;
+        font-weight: 700;
+      }
+      @bottom-right {
+        content: "rjbookstop.com";
+        font-family: Arial, sans-serif;
+        font-size: 6.5pt;
+        color: #999;
       }
     }
 
-    /* ── Base ── */
     body {
       font-family: Arial, sans-serif;
-      font-size: 9pt;
+      font-size: 7.5pt;
       color: #111;
       background: #fff;
+      line-height: 1.2;
     }
 
-    /* ── Page header — repeats on every page via thead ── */
-    /* We use a sticky <thead> so it prints on every page automatically */
+    /* ── Compact page-1 header ── */
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1.5px solid #111;
+      padding-bottom: 4px;
+      margin-bottom: 5px;
+    }
+    .ph-left { display: flex; align-items: baseline; gap: 8px; }
+    .ph-logo {
+      font-size: 11pt;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      line-height: 1;
+    }
+    .ph-logo span { color: #c0392b; }
+    .ph-dist {
+      font-size: 8pt;
+      font-weight: 600;
+      color: #333;
+    }
+    .ph-right {
+      font-size: 6.5pt;
+      color: #666;
+      text-align: right;
+      line-height: 1.5;
+    }
+
+    /* ── Table ── */
     table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
     }
-    thead { display: table-header-group; }
+    thead { display: table-header-group; } /* repeats on every page */
     tbody { display: table-row-group; }
 
-    /* Top-of-first-page title block — hidden on subsequent pages */
-    .first-page-header {
-      margin-bottom: 10px;
-      padding-bottom: 7px;
-      border-bottom: 2px solid #111;
-    }
-    .fp-meta {
-      font-size: 7.5pt;
-      color: #666;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      margin-bottom: 3px;
-    }
-    .fp-title {
-      font-size: 17pt;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      line-height: 1.1;
-    }
-    .fp-title span { color: #c0392b; }
-    .fp-sub {
-      font-size: 8.5pt;
-      color: #444;
-      margin-top: 3px;
-    }
-
-    /* Column header row (repeats on every page) */
-    thead tr.col-header th {
-      font-size: 7pt;
+    /* Column header — repeats every page */
+    thead th {
+      font-size: 6pt;
       font-weight: 700;
       letter-spacing: 0.07em;
       text-transform: uppercase;
-      color: #333;
+      color: #444;
       text-align: left;
-      padding: 5px 5px 5px 4px;
-      background: #f0f0f0;
-      border-top: 1.5px solid #bbb;
-      border-bottom: 1.5px solid #bbb;
+      padding: 3px 3px 3px 2px;
+      background: #efefef;
+      border-top: 1px solid #bbb;
+      border-bottom: 1px solid #bbb;
     }
 
-    /* ── Column widths ── */
-    /* landscape letter content width ≈ 9.3in after margins */
-    .col-code  { width: 1.2in; }
-    .col-qty   { width: 0.7in; }
-    .col-title { width: 3.7in; }   /* widest — gets the remaining space */
-    .col-pub   { width: 1.6in; }
-    .col-price { width: 0.6in; }
-    .col-foc   { width: 0.75in; }
+    /* ── Column widths — total must ≤ 7.8in ── */
+    /* UPC:0.95 + Qty:0.5 + Title:2.9 + Pub:1.75 + Price:0.55 + FOC:0.6 = 7.25in */
+    .col-code  { width: 0.95in; }
+    .col-qty   { width: 0.5in;  }
+    .col-title { width: 2.9in;  }
+    .col-pub   { width: 1.75in; }
+    .col-price { width: 0.55in; }
+    .col-foc   { width: 0.6in;  }
 
-    /* ── Data rows ── */
-    tbody tr { border-bottom: 1px solid #e0e0e0; page-break-inside: avoid; }
-    tbody tr:nth-child(even) { background: #fafafa; }
+    /* ── Data rows — no page-break-inside so rows pack tightly ── */
+    tbody tr { border-bottom: 1px solid #e8e8e8; }
+    tbody tr:nth-child(even) { background: #f7f7f7; }
 
     td {
-      padding: 4px 5px 4px 4px;
+      padding: 2px 3px 2px 2px;
       vertical-align: middle;
-      font-size: 8.5pt;
+      font-size: 7.5pt;
       overflow: hidden;
     }
 
-    /* UPC/ISBN — monospace, smaller */
-    .col-code { font-family: 'Courier New', monospace; font-size: 7.5pt; color: #444; }
+    /* UPC/ISBN */
+    .col-code {
+      font-family: 'Courier New', monospace;
+      font-size: 6.5pt;
+      color: #444;
+      letter-spacing: -0.01em;
+      word-break: break-all;
+    }
 
-    /* Order Qty — centered box for hand-writing */
-    .col-qty  { text-align: center; }
-    .qty-box  {
+    /* Qty write-in box */
+    .col-qty { text-align: center; }
+    .qty-box {
       display: inline-block;
-      width: 36px;
-      height: 20px;
-      border: 1.5px solid #aaa;
-      border-radius: 3px;
+      width: 28px;
+      height: 14px;
+      border: 1px solid #999;
+      border-radius: 2px;
       background: #fff;
     }
 
-    /* Title column */
-    .col-title { font-weight: 600; font-size: 8.5pt; line-height: 1.25; }
-    .col-title .series  { font-weight: 400; font-size: 7.5pt; color: #555; margin-top: 1px; }
-    .col-title .variant { font-weight: 400; font-size: 7pt;  color: #888; font-style: italic; }
-
-    /* Publisher */
-    .col-pub  { font-size: 8pt; color: #333; }
-
-    /* Price — right-aligned */
-    .col-price { text-align: right; font-size: 8pt; font-weight: 600; }
-
-    /* FOC date */
-    .col-foc  { text-align: center; font-size: 7.5pt; color: #444; }
-
-    /* Row count footer line above page footer */
-    .sheet-footer {
-      margin-top: 10px;
-      font-size: 7.5pt;
+    /* Title */
+    .col-title { font-weight: 600; line-height: 1.2; }
+    .col-title .variant {
+      font-weight: 400;
+      font-size: 6.5pt;
       color: #888;
-      text-align: right;
+      font-style: italic;
     }
 
-    @media print {
-      .first-page-header { margin-bottom: 8px; }
+    /* Publisher */
+    .col-pub { font-size: 7pt; color: #333; }
+
+    /* Price */
+    .col-price { text-align: right; font-weight: 600; }
+
+    /* FOC date */
+    .col-foc { text-align: center; font-size: 7pt; color: #555; }
+
+    /* Item count line at end of sheet */
+    .sheet-footer {
+      margin-top: 6px;
+      font-size: 6.5pt;
+      color: #aaa;
+      text-align: right;
     }
   </style>
 </head>
 <body>
 
-  <div class="first-page-header">
-    <div class="fp-meta">rjbookstop.com &nbsp;&middot;&nbsp; ${escapeHtml(distributor)} Distribution &nbsp;&middot;&nbsp; ${escapeHtml(monthLabel)}</div>
-    <div class="fp-title">PULL<span>LIST</span> <span style="font-size:13pt;font-weight:400;color:#333">— ${escapeHtml(distributor)} Order Sheet</span></div>
-    <div class="fp-sub">${items.length.toLocaleString()} titles &nbsp;&middot;&nbsp; ${monthLabel}</div>
+  <div class="page-header">
+    <div class="ph-left">
+      <div class="ph-logo">PULL<span>LIST</span></div>
+      <div class="ph-dist">${escapeHtml(distributor)} Order Sheet &mdash; ${escapeHtml(monthLabel)}</div>
+    </div>
+    <div class="ph-right">
+      ${items.length.toLocaleString()} titles
+    </div>
   </div>
 
   <table>
     <thead>
-      <tr class="col-header">
+      <tr>
         <th class="col-code">UPC / ISBN</th>
-        <th class="col-qty" style="text-align:center">Order Qty</th>
+        <th class="col-qty" style="text-align:center">Qty</th>
         <th class="col-title">Title</th>
         <th class="col-pub">Publisher</th>
         <th class="col-price" style="text-align:right">Price</th>
-        <th class="col-foc"  style="text-align:center">FOC Date</th>
+        <th class="col-foc"  style="text-align:center">FOC</th>
       </tr>
     </thead>
     <tbody>
@@ -1970,7 +1987,7 @@
     </tbody>
   </table>
 
-  <div class="sheet-footer">${items.length.toLocaleString()} titles — ${escapeHtml(distributor)} catalog ${escapeHtml(monthLabel)}</div>
+  <div class="sheet-footer">${items.length.toLocaleString()} titles &middot; ${escapeHtml(distributor)} &middot; ${escapeHtml(monthLabel)}</div>
 
 </body>
 </html>`;
