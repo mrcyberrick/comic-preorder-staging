@@ -1722,7 +1722,7 @@
   // ── Print Order Sheets (Paper Orders tab) ─────────────────
   // Fetches all catalog items for the current month + distributor,
   // then opens a focused print window with the formatted order sheet.
-  // Columns: UPC/ISBN | Order Qty (blank write-in) | Title | Publisher | Price | FOC Date
+  // Columns: UPC/ISBN | Order Qty (blank write-in) | Title | Price | FOC Date
   // Header: Distributor, catalog month, rjbookstop.com
   // Footer margin box: Page X of Y  ·  print date  (via CSS @page)
 
@@ -1748,9 +1748,7 @@
           .select('item_code, upc, isbn, alternate_code, title, series_name, publisher, price_usd, foc_date, on_sale_date, variant_type')
           .eq('catalog_month', currentCatalogMonth)
           .eq('distributor', distributor)
-          .order('publisher', { ascending: true })
-          .order('series_name',  { ascending: true })
-          .order('title',        { ascending: true })
+          .order('title', { ascending: true })
           .range(from, Math.min(from + 999, total - 1))
       );
     }
@@ -1777,19 +1775,11 @@
         return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
       })() : '—';
 
-      // Variant label (shown in grey under title when present)
-      const variantNote = (c.variant_type && c.variant_type !== 'Standard' && c.variant_type !== 'Primary Title')
-        ? `<div class="variant">${escapeHtml(c.variant_type)}</div>` : '';
-
       return `
         <tr>
           <td class="col-code">${escapeHtml(scanCode)}</td>
           <td class="col-qty"><div class="qty-box"></div></td>
-          <td class="col-title">
-            ${escapeHtml(c.title || '—')}
-            ${variantNote}
-          </td>
-          <td class="col-pub">${escapeHtml(c.publisher || '—')}</td>
+          <td class="col-title">${escapeHtml(c.title || '—')}</td>
           <td class="col-price">${price}</td>
           <td class="col-foc">${foc}</td>
         </tr>`;
@@ -1893,11 +1883,10 @@
     }
 
     /* ── Column widths — total must ≤ 7.8in ── */
-    /* UPC:0.95 + Qty:0.5 + Title:2.9 + Pub:1.75 + Price:0.55 + FOC:0.6 = 7.25in */
+    /* UPC:0.95 + Qty:0.5 + Title:4.65 + Price:0.55 + FOC:0.6 = 7.25in */
     .col-code  { width: 0.95in; }
     .col-qty   { width: 0.5in;  }
-    .col-title { width: 2.9in;  }
-    .col-pub   { width: 1.75in; }
+    .col-title { width: 4.65in; }
     .col-price { width: 0.55in; }
     .col-foc   { width: 0.6in;  }
 
@@ -1934,15 +1923,6 @@
 
     /* Title */
     .col-title { font-weight: 600; line-height: 1.2; }
-    .col-title .variant {
-      font-weight: 400;
-      font-size: 6.5pt;
-      color: #888;
-      font-style: italic;
-    }
-
-    /* Publisher */
-    .col-pub { font-size: 7pt; color: #333; }
 
     /* Price */
     .col-price { text-align: right; font-weight: 600; }
@@ -1977,7 +1957,6 @@
         <th class="col-code">UPC / ISBN</th>
         <th class="col-qty" style="text-align:center">Qty</th>
         <th class="col-title">Title</th>
-        <th class="col-pub">Publisher</th>
         <th class="col-price" style="text-align:right">Price</th>
         <th class="col-foc"  style="text-align:center">FOC</th>
       </tr>
