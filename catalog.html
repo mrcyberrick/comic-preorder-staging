@@ -15,6 +15,19 @@
     }
     .toolbar-header .search-wrap { flex: 1 1 auto; }
 
+    /* FOC-locked reserve button — distinct from both reserved (red) and normal (grey) */
+    .btn-reserve.foc-locked,
+    .btn-reserve.foc-locked:disabled {
+      background: transparent !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text-muted) !important;
+      cursor: not-allowed !important;
+      opacity: 0.7 !important;
+      font-size: 0.72rem !important;
+      letter-spacing: 0.02em;
+    }
+    .btn-reserve.foc-locked:hover { opacity: 0.7 !important; }
+
     /* Desktop: filter toggle hidden, panel always shown as normal toolbar */
     @media (min-width: 641px) {
       #btn-filter-toggle { display: none !important; }
@@ -807,6 +820,21 @@
       }
     });
 
+    // ── FOC lock enforcement pass ────────────────────────────
+    // Runs before the click-handler loop so locks are applied regardless
+    // of whether app.js was served fresh or from browser cache.
+    // Any .btn-reserve whose catalog item has a past FOC date is disabled here.
+    grid.querySelectorAll('.btn-reserve').forEach(btn => {
+      const comic = allItems.find(c => c.id === btn.dataset.id);
+      if (comic && isFocLocked(comic.foc_date)) {
+        btn.disabled    = true;
+        btn.textContent = '\uD83D\uDD12 FOC Locked';
+        btn.classList.add('foc-locked');
+        btn.classList.remove('reserved');
+        btn.title = 'Order cutoff has passed — contact the store to inquire';
+      }
+    });
+
     // Card click → modal
     grid.querySelectorAll('.comic-cover, .comic-info').forEach(el => {
       el.addEventListener('click', () => {
@@ -866,10 +894,13 @@
   // comic is the full catalog row — passed directly from the call site so
   // logging metadata is always available regardless of which page is loaded.
   async function toggleReserve(catalogId, btn, quantity = 1, comic = null) {
+    // Hard guard — never allow reserve or cancel on FOC-locked items.
+    // Defense-in-depth: this fires even if a disabled button somehow triggers a click.
+    // comicObj is declared once here and reused throughout the function.
+    const comicObj = comic || allItems.find(c => c.id === catalogId) || null;
+    if (isFocLocked(comicObj && comicObj.foc_date)) return;
     const isReserved = reservedIds.has(catalogId);
     const targetUserId = AdminContext.resolveUserId(user.id);
-    // Fall back to allItems lookup if comic not passed (defensive)
-    const comicObj = comic || allItems.find(c => c.id === catalogId) || null;
     btn.disabled = true;
 
     if (isReserved) {
