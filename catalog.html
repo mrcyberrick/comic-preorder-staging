@@ -104,7 +104,7 @@
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
       </svg>
-      <input type="text" class="search-input" id="search" placeholder="Search titles, series, writers, UPC, ISBN…">
+      <input type="text" class="search-input" id="search" placeholder="Search titles, series, writers, UPC, ISBN, item code…">
     </div>
     <button id="btn-filter-toggle" aria-expanded="false" aria-controls="filter-panel"
       style="display:none;align-items:center;gap:7px;background:var(--bg-elevated);
@@ -131,6 +131,7 @@
     </select>
     <select class="filter-select" id="filter-reserved">
       <option value="">All Items</option>
+      <option value="foc-this-month">⏰ FOC Expiring This Month</option>
       <option value="recommended">Recommended For You</option>
       <option value="reserved">Reserved Only</option>
       <option value="unreserved">Not Yet Reserved</option>
@@ -477,7 +478,96 @@
     renderSkeletons(10, grid);
     currentPage = page;
 
-    const reserveFilter = resEl.value; // 'reserved', 'unreserved', or ''
+    const reserveFilter = resEl.value;
+
+    // ── FOC Expiring This Month ───────────────────────────────
+    // Fetches the full catalog for the month (respecting distributor/publisher/search
+    // and variant filters), then client-side filters to items where foc_date falls
+    // within the current calendar month. Sorted by foc_date ascending so the most
+    // urgent deadlines appear first. Uses the same two-batch count-first approach as
+    // the reserved/unreserved path to avoid Supabase 416 errors.
+    if (reserveFilter === 'foc-this-month') {
+      const buildFilters = (q) => {
+        if (currentMonth) q = q.eq('catalog_month', currentMonth);
+        if (distEl.value) q = q.eq('distributor', distEl.value);
+        if (pubEl.value)  q = q.eq('publisher', pubEl.value);
+        const s = searchEl.value.trim();
+        if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%,upc.ilike.%${s}%,isbn.ilike.%${s}%,item_code.ilike.%${s}%`);
+        return q;
+      };
+
+      const countRes = await buildFilters(
+        db.from('catalog').select('*', { count: 'exact', head: true })
+      );
+      if (countRes.error) {
+        grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(countRes.error.message || JSON.stringify(countRes.error))}</div>`;
+        return;
+      }
+      const total = countRes.count ?? 0;
+
+      let items = [];
+      if (total > 0) {
+        const buildQuery = (from, to) =>
+          buildFilters(db.from('catalog').select('*'))
+            .order('foc_date', { ascending: true })
+            .order('title',    { ascending: true })
+            .range(from, to);
+
+        const batch1 = await buildQuery(0, Math.min(999, total - 1));
+        if (batch1.error) {
+          grid.innerHTML = `<div class="alert alert-error" style="grid-column:1/-1">Failed to load catalog: ${escapeHtml(batch1.error.message)}</div>`;
+          return;
+        }
+        items = batch1.data || [];
+
+        if (total > 1000) {
+          const batch2 = await buildQuery(1000, Math.min(1999, total - 1));
+          if (!batch2.error) items = [...items, ...(batch2.data || [])];
+        }
+      }
+
+      // Client-side: keep only items whose FOC date is this calendar month,
+      // then apply the variant filter on top.
+      const hideVariants = variantEl.value === 'standard';
+      const filtered = items
+        .filter(i => isFocThisMonth(i.foc_date))
+        .filter(i => !hideVariants || isStandardCover(i));
+
+      const filteredTotal = filtered.length;
+      const pageFrom  = (page - 1) * PAGE_SIZE;
+      const displayed = filtered.slice(pageFrom, pageFrom + PAGE_SIZE);
+
+      allItems   = items;
+      totalCount = total;
+      document.getElementById('stat-total').textContent = total;
+
+      if (!filteredTotal) {
+        // Compute current month label for the empty state message
+        const now = new Date();
+        const emptyMonthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+            </svg>
+            <h3>No FOC deadlines this month</h3>
+            <p>No items in the current catalog have a Final Order Cutoff in ${emptyMonthLabel}.</p>
+          </div>`;
+        paginEl.style.display = 'none';
+        countEl.textContent = '';
+        return;
+      }
+
+      // Build a short label like "April 2026" for the count line
+      const now = new Date();
+      const focMonthLabel = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      countEl.textContent = `Showing ${displayed.length} of ${filteredTotal} items with FOC in ${focMonthLabel}`;
+
+      grid.innerHTML = displayed.map(c => buildComicCard(c, reservedIds.get(c.id) || 0)).join('');
+      renderPagination(filteredTotal, page);
+      attachGridEvents();
+      return;
+    }
 
     // ── Recommended For You path ──────────────────────────────
     // Ranks the current month's catalog by relevance to this user:
@@ -572,7 +662,7 @@
         if (distEl.value)    q = q.eq('distributor', distEl.value);
         if (pubEl.value)     q = q.eq('publisher', pubEl.value);
         const s = searchEl.value.trim();
-        if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%,upc.ilike.%${s}%,isbn.ilike.%${s}%`);
+        if (s) q = q.or(`title.ilike.%${s}%,series_name.ilike.%${s}%,writer.ilike.%${s}%,publisher.ilike.%${s}%,upc.ilike.%${s}%,isbn.ilike.%${s}%,item_code.ilike.%${s}%`);
         return q;
       };
 
@@ -945,8 +1035,8 @@
 
     // ── Subscribe button ───────────────────────────────────
     const subscribeBtn = document.getElementById('modal-subscribe');
-    const isStandardCover = !comic.variant_type || comic.variant_type === 'Standard' || comic.variant_type === 'Primary Title';
-    if (comic.series_name && !AdminContext.isActive() && isStandardCover && !isPending) {
+    const isStandardCoverItem = !comic.variant_type || comic.variant_type === 'Standard' || comic.variant_type === 'Primary Title';
+    if (comic.series_name && !AdminContext.isActive() && isStandardCoverItem && !isPending) {
       const subKey = `${comic.series_name}||${comic.distributor}`;
       const isSubscribed = mySubscriptions.has(subKey);
       subscribeBtn.style.display = '';
@@ -1022,6 +1112,7 @@
     const active = [
       distEl.value !== '',
       pubEl.value  !== '',
+      // foc-this-month counts as an active filter just like reserved/unreserved
       resEl.value  !== '',
       variantEl.value !== 'standard',
     ].filter(Boolean).length;

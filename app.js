@@ -217,8 +217,10 @@ const Catalog = {
     if (distributor) query = query.eq('distributor', distributor);
     if (publisher)   query = query.eq('publisher', publisher);
     if (search) {
+      // item_code included so Lunar codes are searchable everywhere Catalog.fetch() is used,
+      // including the Paper Orders typeahead in admin.html.
       query = query.or(
-        `title.ilike.%${search}%,series_name.ilike.%${search}%,writer.ilike.%${search}%,publisher.ilike.%${search}%,upc.ilike.%${search}%,isbn.ilike.%${search}%`
+        `title.ilike.%${search}%,series_name.ilike.%${search}%,writer.ilike.%${search}%,publisher.ilike.%${search}%,upc.ilike.%${search}%,isbn.ilike.%${search}%,item_code.ilike.%${search}%`
       );
     }
     // Standard covers only: variant_type IS NULL, 'Standard' (Lunar), or 'Primary Title' (PRH)
@@ -967,6 +969,18 @@ function isFocPast(dateStr) {
   const now = new Date();
   const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   return dateStr < todayStr;
+}
+
+// Returns true when a FOC date string ('YYYY-MM-DD') falls within the current
+// calendar month (including today, including future dates this month).
+// Uses local date parts to avoid UTC shift.
+function isFocThisMonth(dateStr) {
+  if (!dateStr) return false;
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm   = String(now.getMonth() + 1).padStart(2, '0');
+  const monthPrefix = `${yyyy}-${mm}`;
+  return dateStr.startsWith(monthPrefix);
 }
 
 function formatPrice(price) {
