@@ -346,25 +346,34 @@ END $$;
 -- from backup-prod-pre-multitenancy-20260429.sql and recreate here.
 -- Update the view to include tenant_id in its output.
 --
--- TODO: Paste actual view definition from production pg_dump and add
--- tenant_id to the SELECT list. Example skeleton:
 --
--- CREATE OR REPLACE VIEW admin_preorders AS
--- SELECT
---   p.id,
---   p.user_id,
---   p.catalog_id,
---   p.quantity,
---   p.created_at,
---   p.tenant_id,
---   up.full_name AS customer_name,
---   c.title AS comic_title,
---   c.distributor,
---   c.on_sale_date,
---   c.tenant_id AS catalog_tenant_id  -- sanity check
--- FROM preorders p
--- JOIN user_profiles up ON up.id = p.user_id
--- JOIN catalog c ON c.id = p.catalog_id;
+-- TOC entry 390 (class 1259 OID 26957)
+-- Name: admin_preorders; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.admin_preorders AS
+ SELECT p.id AS preorder_id,
+    p.created_at AS reserved_at,
+    p.quantity,
+    p.notes AS customer_notes,
+    up.full_name AS customer_name,
+    c.distributor,
+    c.item_code,
+    c.title,
+    c.series_name,
+    c.publisher,
+    c.format,
+    c.issue_number,
+    c.price_usd,
+    (c.price_usd * (p.quantity)::numeric) AS line_total,
+    c.foc_date,
+    c.on_sale_date,
+    c.catalog_month,
+    c.cover_url
+   FROM ((public.preorders p
+     JOIN public.user_profiles up ON ((up.id = p.user_id)))
+     JOIN public.catalog c ON ((c.id = p.catalog_id)))
+  ORDER BY up.full_name, c.on_sale_date;
 
 -- 3. Update unique constraints to include tenant_id where appropriate
 
@@ -839,27 +848,23 @@ COMMIT;
 
 ## Phase 1 Completion Criteria
 
-Phase 1 is complete when **all** of the following are true on staging:
+## Phase 1 Completion Criteria
 
-- [ ] Sub-Deploy 1.1, 1.2, and 1.3 all executed successfully
-- [ ] All verification queries return expected results
-- [ ] Smoke test gate after 1.3 passed without issues
-- [ ] Row counts match baseline (no data lost)
-- [ ] RLS isolation pre-check confirmed: a second test tenant's data is
-      invisible to the founding tenant's users
-- [ ] Customer flows (catalog browse, reserve, my list, subscriptions,
-      this week) all work
-- [ ] Admin flows (dashboard, impersonation, settings) all work
-- [ ] Email notifications still send (test via admin "send invite" or
-      "notify customers" if available on staging)
-- [ ] Monthly import script (`import-staging.js`) **WILL BREAK at the
-      next monthly run** because the database functions now require
-      `p_tenant_id`. This is expected and addressed in Phase 2.
-- [ ] Updated `docs/pre-multitenancy-state.md` with a section noting
-      Phase 1 completion date and any deviations from this plan
-- [ ] Branch `feature/multi-tenancy-foundation` merged into `staging`
-- [ ] Staging GitHub Pages deploy is unchanged (no app code changes
-      needed for Phase 1)
+Phase 1 complete as of 2026-04-30. All criteria met:
+
+- [x] Sub-Deploy 1.1, 1.2, and 1.3 all executed successfully
+- [x] All verification queries returned expected results
+- [x] Smoke test gate after 1.3 passed without issues
+- [x] Row counts match baseline (no data lost)
+- [x] RLS isolation confirmed: test tenant's data invisible to founding tenant users
+- [x] Customer flows all work (catalog, reserve, my list, subscriptions, this week)
+- [x] Admin flows all work (dashboard, impersonation, maintenance mode)
+- [x] Branch feature/multi-tenancy-foundation merged into staging
+- [x] pre-multitenancy-state.md updated with Phase 1 completion notes
+
+- [ ] Email notifications (not tested in Phase 1 — carries forward to Phase 2)
+
+Note: import-staging.js WILL BREAK at next monthly run as documented above.
 
 ---
 

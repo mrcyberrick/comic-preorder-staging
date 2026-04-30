@@ -119,3 +119,60 @@ If you need to fully roll back to the state captured here:
 1. **Code:** `git checkout pre-multitenancy-v1` (production) or
    `pre-multitenancy-v1-staging` (staging).
 2. **Database:** restore the `.sql` dump using `psql`:
+
+---
+
+## Phase 1 Completion — 2026-04-30
+
+Status: Complete on staging. Production untouched.
+Branch merged: feature/multi-tenancy-foundation → staging
+
+### Founding Tenant
+- slug: raysandjudys
+- display_name: Ray & Judy's Book Stop
+- id: 72e29f67-39f7-42bc-a4d5-d6f992f9d790
+
+### Tables Added
+- tenants
+
+### Columns Added (all tables except catalog)
+- tenant_id uuid NOT NULL DEFAULT '72e29f67-...' REFERENCES tenants(id)
+- catalog.tenant_id has no default (import-script-only, service role bypasses RLS)
+
+### Deviations From Plan
+
+**Extra tables discovered at pre-flight:**
+app_settings and usage_events were not in technical-reference.md but existed
+on staging. Both received tenant_id, RLS policies, and column defaults.
+
+**analytics views:**
+analytics_daily_events, analytics_top_cancelled, analytics_top_reserved,
+analytics_top_subscribed, analytics_user_activity are views over real tables.
+No tenant_id needed in Phase 1. Will need rebuilding in Phase 2 to filter
+by current_tenant_id().
+
+**RLS recursion fix:**
+Admin policies originally used EXISTS (SELECT 1 FROM user_profiles WHERE
+is_admin = true). This caused infinite recursion → 500 errors on all tables.
+Fixed by adding current_user_is_admin() SECURITY DEFINER function. All admin
+policies now call this function instead of the inline subquery.
+
+**Missing INSERT policy on app_settings:**
+Maintenance mode toggle uses upsert. Original policy set only covered SELECT
+and UPDATE. Added INSERT and DELETE policies for admins.
+
+**Column defaults not in original plan:**
+All app-written tables received a tenant_id column default set to the
+founding tenant UUID. This bridges the Phase 2 gap where app code does not
+yet pass tenant_id explicitly. catalog intentionally has no default — it is
+only written by the import script using the service role.
+
+### Known Breakage
+import-staging.js RPC calls will fail at next monthly run.
+Affected functions (old 2-param signatures removed):
+- purge_stale_catalog
+- delete_dropped_catalog_items
+- archive_stale_reservations
+All three now require p_tenant_id uuid as first argument.
+Do not run the staging import until Phase 2 is complete, or patch the
+three RPC calls in import-staging.js manually as a stopgap.
