@@ -54,8 +54,8 @@ not exist — write them when their turn comes, not before.
 
 | #   | Title                                | Plan                                          | Status      | Completed   |
 |-----|--------------------------------------|-----------------------------------------------|-------------|-------------|
-| 3.1 | Tenant resolution layer (read-only)  | `phase-3.1-tenant-resolution-layer.md`        | Planning    | —           |
-| 3.2 | Explicit tenant_id on app.js writes  | (not yet written — pending 3.1 completion)    | Pending     | —           |
+| 3.1 | Tenant resolution layer (read-only)  | `phase-3.1-tenant-resolution-layer.md`        | Complete    | 2026-05-02  |
+| 3.2 | Explicit tenant_id on app.js writes  | (not yet written — pending soak)              | Pending     | —           |
 | 3.3 | Remove column defaults               | (not yet written — pending 3.2 completion)    | Pending     | —           |
 | 3.4 | Analytics views rebuild              | (not yet written — pending 3.3 completion)    | Pending     | —           |
 

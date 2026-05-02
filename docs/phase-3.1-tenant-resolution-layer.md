@@ -460,19 +460,20 @@ No DB changes were made, so there is no SQL rollback to run.
 
 Phase 3.1 is complete when **all** of the following are true on staging:
 
-- [ ] `TenantContext` module added to `app.js`, ~80 lines, syntactically valid
-- [ ] `index.html` and `catalog.html` call `TenantContext.resolve()` at page init
-- [ ] V1–V5 verification queries all return the expected results
-- [ ] Smoke test rows 1–11 all pass
-- [ ] No other files modified (verify with `git diff --stat`)
-- [ ] No DB changes made (verify by inspecting recent migrations: there should be none)
-- [ ] Branch `feature/phase-3.1-tenant-resolution-layer` merged into `staging`
-- [ ] Staging GitHub Pages deploy succeeded and pages render correctly
-- [ ] `docs/phase-3-tenant-resolution.md` parent doc updated with sub-deploy 3.1
-      status set to "Complete" and the date
-- [ ] No out-of-scope work was bundled into this commit (verify by reading
-      the diff — it should be limited to `app.js`, `index.html`, `catalog.html`,
-      and the parent phase doc)
+## Completion Criteria
+
+**Status: Complete as of 2026-05-02. All criteria met.**
+
+- [x] `TenantContext` module added to `app.js`, ~80 lines, syntactically valid
+- [x] `index.html` and `catalog.html` call `TenantContext.resolve()` at page init
+- [x] V1–V5 verification queries all returned the expected results
+- [x] Smoke test rows 1–11 all passed
+- [x] No other files modified (verify with `git diff --stat`)
+- [x] No DB changes made (verify by inspecting recent migrations: there should be none)
+- [x] Branch `feature/phase-3.1-tenant-resolution-layer` merged into `staging`
+- [x] Staging GitHub Pages deploy succeeded and pages render correctly
+- [x] `docs/phase-3-tenant-resolution.md` parent doc updated with sub-deploy 3.1 status
+- [x] No out-of-scope work was bundled into this commit
 
 ---
 

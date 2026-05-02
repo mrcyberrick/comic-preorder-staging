@@ -9,7 +9,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 3 — Tenant Resolution
 **Plan (parent):** `docs/phase-3-tenant-resolution.md`
-**Active sub-deploy plan:** `docs/phase-3.1-tenant-resolution-layer.md` (or whichever sub-deploy is currently in progress)
+**Active sub-deploy plan:** Sub-deploy 3.1 complete. 3.2 plan pending — soak in progress.
 **Last completed phase:** Phase 2 — see `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
 
