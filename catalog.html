@@ -223,6 +223,7 @@
 <script src="app.js"></script>
 <script>
 (async () => {
+  await TenantContext.resolve();
   const navData = await initNav();
   if (!navData) return;
   const { user, profile } = navData;

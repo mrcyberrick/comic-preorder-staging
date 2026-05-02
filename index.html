@@ -127,6 +127,9 @@
 <script>
 (async () => {
 
+  // Capture ?t= before any redirect so sessionStorage gets the slug
+  await TenantContext.resolve();
+
   // ── Parse URL for tokens (query params AND hash fragment) ──
   const qParams     = new URLSearchParams(window.location.search);
   const hashParams  = new URLSearchParams(window.location.hash.substring(1));

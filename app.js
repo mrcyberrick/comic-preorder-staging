@@ -9,6 +9,121 @@
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// ============================================================================
+// TenantContext — resolves the active tenant for the current page load.
+//
+// Resolution order (highest priority first):
+//   1. Authenticated user's user_profiles.tenant_id
+//   2. ?t=<slug> query parameter (persisted to sessionStorage for the tab)
+//   3. Founding tenant fallback (raysandjudys)
+//
+// Phase 3.1: read-only — does not affect writes. Phase 3.2 will make
+// app.js writes pass tenant_id explicitly using TenantContext.current().
+//
+// The slug→id mapping for unauthenticated lookup is hardcoded here
+// because the tenants table is not readable by anon. Replaced with
+// an RPC in a later sub-deploy once a second tenant exists.
+// ============================================================================
+
+const FOUNDING_TENANT = {
+  id: '72e29f67-39f7-42bc-a4d5-d6f992f9d790',
+  slug: 'raysandjudys',
+  display_name: "Ray & Judy's Book Stop",
+};
+
+const TENANT_SLUG_MAP = {
+  // slug → { id, slug, display_name }
+  raysandjudys: FOUNDING_TENANT,
+};
+
+const TenantContext = {
+  _current: null,
+  _source: null,
+
+  async resolve() {
+    if (this._current) return this._current;
+
+    // 1. Check for an authenticated session and try the profile route first
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      if (session?.user?.id) {
+        const { data: profile } = await db
+          .from('user_profiles')
+          .select('tenant_id')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile?.tenant_id) {
+          const { data: tenant } = await db
+            .from('tenants')
+            .select('id, slug, display_name')
+            .eq('id', profile.tenant_id)
+            .single();
+
+          if (tenant) {
+            this._current = tenant;
+            this._source = 'profile';
+            return this._current;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('TenantContext: profile lookup failed, falling back', err);
+    }
+
+    // 2. Check ?t= query parameter (and persist to sessionStorage)
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get('t');
+      if (fromQuery) {
+        const tenant = TENANT_SLUG_MAP[fromQuery];
+        if (tenant) {
+          sessionStorage.setItem('pulllist.tenant_slug', fromQuery);
+          this._current = tenant;
+          this._source = 'query';
+          return this._current;
+        }
+        // Unknown slug — log and fall through
+        console.warn('TenantContext: unknown tenant slug in ?t=', fromQuery);
+      }
+
+      // 3. Check sessionStorage (carries query-resolved tenant across nav)
+      const fromStorage = sessionStorage.getItem('pulllist.tenant_slug');
+      if (fromStorage && TENANT_SLUG_MAP[fromStorage]) {
+        this._current = TENANT_SLUG_MAP[fromStorage];
+        this._source = 'session';
+        return this._current;
+      }
+    } catch (err) {
+      console.warn('TenantContext: query/session lookup failed', err);
+    }
+
+    // 4. Default fallback — founding tenant
+    this._current = FOUNDING_TENANT;
+    this._source = 'default';
+    return this._current;
+  },
+
+  current() {
+    if (!this._current) {
+      throw new Error('TenantContext.current() called before resolve()');
+    }
+    return this._current;
+  },
+
+  source() {
+    return this._source;
+  },
+
+  _reset() {
+    this._current = null;
+    this._source = null;
+  },
+};
+
+// Expose on window for debugging and for HTML pages to await
+window.TenantContext = TenantContext;
+
 // ── Auth Helpers ─────────────────────────────────────────────
 const Auth = {
   async getSession() {
