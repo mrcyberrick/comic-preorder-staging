@@ -416,6 +416,7 @@
   if (navAnalytics) navAnalytics.style.display = 'block';
 
   let allPreorders = [];
+  let profileMap   = {};
 
   // ── Load Data ─────────────────────────────────────────────
   let currentCatalogMonth = null;
@@ -449,7 +450,7 @@
       return;
     }
 
-    const profileMap = {};
+    profileMap = {};
     (profilesRes.data || []).forEach(u => profileMap[u.id] = u.full_name);
 
     // Scope to current catalog month only
@@ -1069,28 +1070,57 @@
     return `${y}-${m}-${d}`;
   }
 
-  function renderThisWeek() {
+  async function renderThisWeek() {
     const thisWednesday = getThisWednesday();
-    const arriving = allPreorders.filter(p => p.catalog?.on_sale_date === thisWednesday);
 
-    // Format Wednesday for display
-    const [y, m, d] = thisWednesday.split('-').map(Number);
-    const wedDisplay = new Date(y, m - 1, d).toLocaleDateString('en-US', {
-      weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-    });
+    // Week range: Monday (Wed-2) through Saturday (Wed+3)
+    const [wy, wm, wd] = thisWednesday.split('-').map(Number);
+    const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const weekStart = fmtDate(new Date(wy, wm - 1, wd - 2));
+    const weekEnd   = fmtDate(new Date(wy, wm - 1, wd + 3));
 
-    const headerEl = document.getElementById('this-week-header');
+    const monDisplay = new Date(wy, wm - 1, wd - 2).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const satDisplay = new Date(wy, wm - 1, wd + 3).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const weekDisplay = `${monDisplay} – ${satDisplay}`;
+
+    const headerEl  = document.getElementById('this-week-header');
     const container = document.getElementById('this-week-groups');
+    container.innerHTML = '<div class="empty-state"><p style="color:var(--text-muted)">Loading…</p></div>';
+    headerEl.innerHTML  = '';
+
+    // Query across all catalog months — not scoped to currentCatalogMonth
+    const { data, error } = await db
+      .from('preorders')
+      .select(`
+        id, user_id, quantity, fulfilled, fulfilled_at,
+        catalog!inner(
+          id, distributor, item_code, title, series_name, publisher,
+          price_usd, on_sale_date, cover_url, variant_type, catalog_month
+        )
+      `)
+      .gte('catalog.on_sale_date', weekStart)
+      .lte('catalog.on_sale_date', weekEnd)
+      .order('user_id');
+
+    if (error) {
+      container.innerHTML = `<div class="alert alert-error">Failed to load: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    const arriving = (data || []).map(p => ({
+      ...p,
+      customer_name: profileMap[p.user_id] || 'Unknown',
+    }));
 
     if (!arriving.length) {
       headerEl.innerHTML = `
         <div style="color:var(--text-muted);font-size:0.85rem">
-          No reservations arriving <strong style="color:var(--text-secondary)">${wedDisplay}</strong>
+          No reservations arriving <strong style="color:var(--text-secondary)">${weekDisplay}</strong>
         </div>`;
       container.innerHTML = `
         <div class="empty-state">
           <h3>Nothing arriving this week</h3>
-          <p>No customers have reservations with an on-sale date of ${wedDisplay}.</p>
+          <p>No customers have reservations with an on-sale date between ${weekDisplay}.</p>
         </div>`;
       return;
     }
@@ -1106,8 +1136,8 @@
                   border-radius:var(--radius-lg);margin-bottom:4px">
         <div>
           <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
-                      text-transform:uppercase;color:var(--text-muted)">On Sale</div>
-          <div style="font-weight:700;color:var(--text-primary)">${wedDisplay}</div>
+                      text-transform:uppercase;color:var(--text-muted)">Week of</div>
+          <div style="font-weight:700;color:var(--text-primary)">${weekDisplay}</div>
         </div>
         <div>
           <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;
@@ -1126,7 +1156,7 @@
         </div>
       </div>`;
 
-    // Group by customer — same pattern as By Customer tab
+    // Group by customer
     const grouped = {};
     arriving.forEach(p => {
       const key = p.customer_name;
@@ -1137,8 +1167,8 @@
     container.innerHTML = Object.entries(grouped)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, items]) => {
-        const total    = items.reduce((s, p) => s + ((parseFloat(p.catalog?.price_usd)||0) * (p.quantity||1)), 0);
-        const totalQty = items.reduce((s, p) => s + (p.quantity||1), 0);
+        const total      = items.reduce((s, p) => s + ((parseFloat(p.catalog?.price_usd)||0) * (p.quantity||1)), 0);
+        const totalQty   = items.reduce((s, p) => s + (p.quantity||1), 0);
         const lunarCount = items.filter(p => p.catalog?.distributor === 'Lunar').reduce((s,p) => s+(p.quantity||1), 0);
         const prhCount   = items.filter(p => p.catalog?.distributor === 'PRH').reduce((s,p) => s+(p.quantity||1), 0);
         return `
