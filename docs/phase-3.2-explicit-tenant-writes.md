@@ -425,19 +425,19 @@ No DB rollback needed — column defaults remain in place throughout 3.2.
 
 ## Completion Criteria
 
-Phase 3.2 is complete when **all** of the following are true on staging:
+**Status: Complete as of 2026-05-04. All criteria met.**
 
-- [ ] All 4 INSERT/UPSERT call sites in `app.js` pass `tenant_id` explicitly
-- [ ] `UsageEvents._log()` has the defensive try/catch fallback to `FOUNDING_TENANT.id`
-- [ ] V1–V6 verification checks all return expected results
-- [ ] Smoke test rows 1–12 all pass
-- [ ] Magic-link flow tested via `test-magic-link.ps1` with no errors
-- [ ] No other files modified (verify with `git diff --stat`)
-- [ ] No DB changes made (verify column defaults still present)
-- [ ] Branch `feature/phase-3.2-explicit-tenant-writes` merged into `staging`
-- [ ] Staging GitHub Pages deploy succeeded
-- [ ] `docs/phase-3-tenant-resolution.md` parent doc updated with sub-deploy 3.2 status set to "Complete" and the date
-- [ ] No out-of-scope work was bundled into this commit (verify by reading
+- [X] All 4 INSERT/UPSERT call sites in `app.js` pass `tenant_id` explicitly
+- [X] `UsageEvents._log()` has the defensive try/catch fallback to `FOUNDING_TENANT.id`
+- [X] V1–V6 verification checks all return expected results
+- [X] Smoke test rows 1–12 all pass
+- [X] Magic-link flow tested via `test-magic-link.ps1` with no errors
+- [X] No other files modified (verify with `git diff --stat`)
+- [X] No DB changes made (verify column defaults still present)
+- [X] Branch `feature/phase-3.2-explicit-tenant-writes` merged into `staging`
+- [X] Staging GitHub Pages deploy succeeded
+- [X] `docs/phase-3-tenant-resolution.md` parent doc updated with sub-deploy 3.2 status set to "Complete" and the date
+- [X] No out-of-scope work was bundled into this commit (verify by reading
       the diff — it should be limited to `app.js` and the parent phase doc)
 
 ---

@@ -56,10 +56,13 @@ not exist — write them when their turn comes, not before.
 |-----|----------------------------------------------------|-----------------------------------------------|-------------|-------------|
 | 3.1 | Tenant resolution layer (read-only)                | `phase-3.1-tenant-resolution-layer.md`        | Complete    | 2026-05-02  |
 | 3.2 | Explicit tenant_id on app.js writes                | `phase-3.2-explicit-tenant-writes.md`         | Complete    | 2026-05-04  |
-| 3.3 | Remove column defaults                             | (not yet written — pending 3.2 completion)    | Pending     | —           |
-| 3.4 | Analytics views rebuild                            | (not yet written — pending 3.3 completion)    | Pending     | —           |
-| 3.5 | Usage events purge job (90-day retention)          | (not yet written — pending 3.4 completion)    | Pending     | —           |
-| 3.6 | Admin operational tooling — Wednesday workflow     | (not yet written — pending 3.5 completion)    | Pending     | —           |
+| 3.3 | Remove column defaults                             | (not yet written — pending soak)              | Pending     | —           |
+| 3.4 | Analytics views rebuild                            | (not yet written)                             | Pending     | —           |
+| 3.5 | Usage events purge job (90-day retention)          | (not yet written)                             | Pending     | —           |
+| 3.6 | Admin operational tooling — Wednesday workflow     | (not yet written)                             | Pending     | —           |
+| —   | **Deferred — fulfillment feature not in active use** |                                            |             |             |
+| ?   | Fulfillment integrity — block customer edits       | (deferred until fulfillment in active use)    | Deferred    | —           |
+| ?   | Partial fulfillment support (schema + UI)          | (deferred — needs product scoping)            | Deferred    | —           |
 
 Each sub-deploy ends in a working state, smoke-testable, reversible.
 **Do not bundle multiple sub-deploys into one session.** See the
