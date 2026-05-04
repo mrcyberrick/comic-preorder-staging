@@ -481,7 +481,12 @@ const Settings = {
   async set(key, value) {
     const { error } = await db
       .from('app_settings')
-      .upsert({ key, value, updated_at: new Date().toISOString() });
+      .upsert({
+        key,
+        value,
+        updated_at: new Date().toISOString(),
+        tenant_id: TenantContext.current().id,
+      });
     return { error };
   },
 
@@ -516,10 +521,22 @@ const UsageEvents = {
     if (!userId) return;
     // Do not log events triggered while admin is impersonating a customer
     if (AdminContext.isActive()) return;
+
+    // Resolve tenant_id defensively — UsageEvents may be called before
+    // TenantContext.resolve() completes (it's fire-and-forget from anywhere).
+    // Fall back to the founding tenant constant if TenantContext isn't ready.
+    // The DB column default is the final safety net.
+    let tenantId;
+    try {
+      tenantId = TenantContext.current().id;
+    } catch {
+      tenantId = FOUNDING_TENANT.id;
+    }
+
     db.from('usage_events')
-      .insert({ user_id: userId, event_type: eventType, metadata })
-      .then(() => {})   // suppress unhandled-promise warnings
-      .catch(() => {});  // fail silently — never surface to UI
+      .insert({ user_id: userId, event_type: eventType, metadata, tenant_id: tenantId })
+      .then(() => {})
+      .catch(() => {});
   },
 
   // Public helpers — call these from page scripts
@@ -642,7 +659,12 @@ const Preorders = {
   async reserve(userId, catalogId, quantity = 1) {
     const { data, error } = await db
       .from('preorders')
-      .insert({ user_id: userId, catalog_id: catalogId, quantity })
+      .insert({
+        user_id: userId,
+        catalog_id: catalogId,
+        quantity,
+        tenant_id: TenantContext.current().id,
+      })
       .select()
       .single();
     return { data, error };
@@ -745,7 +767,13 @@ const Subscriptions = {
   async subscribe(userId, seriesName, distributor, format = null) {
     const { data, error } = await db
       .from('subscriptions')
-      .insert({ user_id: userId, series_name: seriesName, distributor, format })
+      .insert({
+        user_id: userId,
+        series_name: seriesName,
+        distributor,
+        format,
+        tenant_id: TenantContext.current().id,
+      })
       .select()
       .single();
     if (!error) UsageEvents.subscribe(userId, seriesName, distributor);
