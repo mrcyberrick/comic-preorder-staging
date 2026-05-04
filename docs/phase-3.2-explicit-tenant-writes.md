@@ -489,4 +489,35 @@ Resolve these before starting:
 
 ---
 
-**Last updated:** 2026-05-02 (initial plan)
+---
+
+## Execution Notes
+
+### Hot-fix applied after V3 failure (2026-05-04)
+
+**Discovered gap:** `TenantContext.resolve()` was only awaited on `index.html`
+and `catalog.html` (added in Phase 3.1). The other four authenticated pages —
+`admin.html`, `mylist.html`, `arrivals.html`, `subscriptions.html` — share a
+common boot path through `initNav()` but `initNav()` never called
+`TenantContext.resolve()`. Any write triggered from those pages (e.g., toggling
+maintenance mode on `admin.html`) threw `TenantContext.current() called before
+resolve()` because the context was never resolved on that page load.
+
+**Root cause:** Phase 3.1 resolved the context inline on each page that needed
+it, rather than in the shared `initNav()` function. The pages that were tested
+(catalog flow) worked; the admin page was not in the Phase 3.1 verification
+matrix.
+
+**Fix applied:** Added `await TenantContext.resolve()` as the first action in
+`initNav()` in `app.js`, immediately after the early-return guard on the missing
+nav element and before `await Auth.getUser()`. This means every authenticated
+page that calls `initNav()` now resolves the tenant context before any user
+action can trigger a write.
+
+**Files changed:**
+- `app.js` line 190 — one `await TenantContext.resolve()` call added to `initNav()`
+
+**Re-verification required:** Re-run V3 (admin maintenance mode toggle) to
+confirm the error is resolved. Re-run smoke test rows 7–9.
+
+**Last updated:** 2026-05-04 (hot-fix execution notes added)

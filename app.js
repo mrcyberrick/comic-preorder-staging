@@ -186,6 +186,9 @@ async function initNav() {
   const nav = document.getElementById('main-nav');
   if (!nav) return;
 
+  // Must resolve before any TenantContext.current() calls on this page
+  await TenantContext.resolve();
+
   const user = await Auth.getUser();
   if (!user) {
     window.location.href = 'index.html';
