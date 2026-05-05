@@ -634,6 +634,32 @@ Resolve these before starting:
 
 ---
 
+## Execution Notes
+
+**2026-05-05** — During V6 verification, `archive_stale_reservations`
+RPC failed with `null value in column "tenant_id" of relation
+"reservation_history" violates not-null constraint`. Root cause:
+Phase 1.3 added `p_tenant_id` as a parameter to the function and
+filtered by it in the SELECT, but the INSERT into reservation_history
+didn't include `tenant_id` in the column list. The column default
+established in Phase 1.3 had been masking this gap.
+
+Fix applied inline as part of 3.3 (same pattern as 3.1's hot-fix):
+`CREATE OR REPLACE FUNCTION archive_stale_reservations` with
+`tenant_id` added to both the INSERT column list and the SELECT
+projection (using `p_tenant_id` as the source).
+
+V6 passed on retry. No other functions had similar gaps:
+`claim_paper_account` was inspected and only does UPDATE/DELETE on
+existing rows — no INSERT, no NOT NULL exposure.
+
+Architectural note for later: `claim_paper_account` doesn't filter
+preorder/subscription reassignment by tenant. Not a 3.3 concern
+(no NOT NULL violation possible) but worth revisiting when paper-
+customer flows are exercised cross-tenant in a future phase.
+
+---
+
 ## Reference
 
 - Parent plan: `docs/phase-3-tenant-resolution.md`
