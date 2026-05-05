@@ -10,15 +10,16 @@ comic pre-order system. **Read this file in full at the start of every session.*
 **Active phase:** Phase 3 — Tenant Resolution
 **Plan (parent):** `docs/phase-3-tenant-resolution.md`
 **Active sub-deploy plan:** Sub-deploy 3.3 complete. 3.4 plan pending — soak in progress.
-**Last completed sub-deploy:** 3.2 — see `docs/phase-3.2-explicit-tenant-writes.md`
+**Last completed sub-deploy:** 3.3 — see `docs/phase-3.3-remove-column-defaults.md`
 **Last completed phase:** Phase 2 — see `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
 
 **Out of scope this phase:**
-- Phase 4+ work (self-service tenant signup, billing, branding rendering)
+- Phase 4+ work (production migration, hosting migration, self-service tenant signup, billing, branding rendering)
 - Production deploys of any kind
 - Edge Function business logic changes beyond passing `tenant_id`
-- Any `analytics_*` view changes (deferred to sub-deploy 3.4)
+- Sub-deploys not yet active (3.4 analytics views, 3.5 usage events purge, 3.6 admin operational tooling)
+- The two deferred fulfillment bugs (customer can cancel fulfilled item; partial fulfillment) — see Known Out-of-Scope Items
 
 Before proposing any work, read the active phase docs and confirm the proposed
 change is in scope. **If something seems related but isn't on the IN scope list
@@ -162,6 +163,8 @@ comic-preorder/                    ← production repo (github.com/mrcyberrick/c
 C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\
   import.js              ← production import script (with prod credentials)
   import-staging.js      ← staging import script (with staging credentials)
+  test-magic-link.ps1    ← reusable PowerShell smoke-test helper
+  .env                   ← script credentials (never committed)
   package.json
   node_modules\
 ```
@@ -246,8 +249,8 @@ The full current schema lives in `docs/technical-reference.md`. That file is
 the canonical source of truth — read it before making any schema-related claim.
 
 **Do not infer schema details from this `CLAUDE.md` or from earlier sessions.**
-The schema changed materially in Phase 1 (multi-tenancy) and will continue to
-evolve in later phases. A summary here would drift out of date and mislead.
+The schema changed materially in Phase 1 (multi-tenancy) and continues to
+evolve. A summary here would drift out of date and mislead.
 
 Quick orientation only:
 - Multi-tenant via `tenants` table; every tenant-scoped table has `tenant_id`
@@ -255,15 +258,32 @@ Quick orientation only:
 - Import script uses **service role key** (bypasses RLS); web app uses anon key
 - Founding tenant UUID is documented above under "Supabase Projects"
 
+**As of Phase 3.3:** `tenant_id` column defaults are removed from all tenant-
+scoped tables. Every INSERT must pass `tenant_id` explicitly — there is no
+database-side fallback. The only exception is the defensive try/catch in
+`UsageEvents._log()` which falls back to `FOUNDING_TENANT.id` if
+`TenantContext.current()` is called before `resolve()` completes.
+
 ---
 
 ## app.js Structure
 
 Source of truth: read `app.js` directly. The major API objects exposed on
 `window` are `Auth`, `Catalog`, `Preorders`, `Subscriptions`, `Settings`,
-`AdminContext`, `NavBubble`, and `Maintenance`. Read the file before making
-claims about specific method signatures or behavior — this `CLAUDE.md`
-intentionally does not duplicate the API surface to avoid drift.
+`AdminContext`, `NavBubble`, `TenantContext`, and `Maintenance`. Read the
+file before making claims about specific method signatures or behavior —
+this `CLAUDE.md` intentionally does not duplicate the API surface to avoid
+drift.
+
+**As of Phase 3.1:** `TenantContext` resolves the active tenant on page load
+from (1) authenticated user's profile, (2) `?t=<slug>` query param, or
+(3) founding tenant fallback. `initNav()` calls `TenantContext.resolve()`
+before any other init code, so authenticated pages have tenant context
+ready before any write fires.
+
+**As of Phase 3.2:** All `app.js` writes pass `tenant_id` explicitly using
+`TenantContext.current().id`. Affected call sites: `Preorders.reserve()`,
+`Subscriptions.subscribe()`, `Settings.set()`, and `UsageEvents._log()`.
 
 ---
 
@@ -313,7 +333,7 @@ The import script (`import.js` / `import-staging.js`) runs locally each month:
 9. Prompts to send customer notification emails
 
 **Post-Phase-1**: the staging script passes `tenant_id` everywhere — in the
-`tenants_id` upsert key, in normalized records, in auto-reserve inserts, and as
+upsert key, in normalized records, in auto-reserve inserts, and as
 `p_tenant_id` to the three RPC calls (`purge_stale_catalog`,
 `delete_dropped_catalog_items`, `archive_stale_reservations`).
 
@@ -340,23 +360,54 @@ Unchanged in Phase 2 (PATCH/DELETE on existing rows only):
 The `FOUNDING_TENANT_ID` secret must be set in Supabase staging → Edge
 Functions → Secrets for the tenant-aware functions to work.
 
+**Database functions also patched during Phase 3.3:**
+The `archive_stale_reservations` SQL function was updated inline during
+3.3 verification. Phase 1.3 had added `p_tenant_id` as a parameter and
+filtered the SELECT by it, but the INSERT into `reservation_history` was
+missing `tenant_id` in the column list — the now-removed column default
+had been masking the gap. Fix is documented in
+`docs/phase-3.3-remove-column-defaults.md` § Execution Notes.
+
 ---
 
 ## Known Out-of-Scope Items
 
-The following are pending work that should NOT be touched in agentic sessions
-without explicit user approval:
+The following are pending or deferred work that should NOT be touched in
+agentic sessions without explicit user approval:
 
-- **Production deploys** — staging only until phases complete
+### Pending — will be addressed in scheduled sub-deploys
 - **Analytics views** (`analytics_*`) — pending sub-deploy 3.4
-- **Column defaults removal** — pending sub-deploy 3.3 (defaults are still
-  load-bearing because app code doesn't yet pass `tenant_id` explicitly)
-- **Edge Function business logic** — only `tenant_id` changes are in scope
-  until a later phase
+- **Usage events purge job** (90-day retention) — pending sub-deploy 3.5
+- **Admin operational tooling** (Wednesday workflow printouts, per-customer
+  print buttons) — pending sub-deploy 3.6
+
+### Deferred — feature not in active use, no urgency
+- **Customer can cancel a fulfilled preorder** — data integrity bug discovered
+  during Phase 3.2 smoke testing. The Mark Fulfilled feature is not currently
+  in operational use, so impact is zero today. Will revisit when fulfillment
+  workflow is exercised (likely as part of 3.6).
+- **Partial fulfillment not representable** — when a customer reserves quantity
+  3 of an item, the system can mark the whole row fulfilled or unfulfilled but
+  not "2 of 3 fulfilled, 1 still pending." This is a feature, not a bug — a
+  product decision. Deferred until product scoping happens.
+
+### Deferred — production / infrastructure
+- **Production deploys** — staging only until Phase 3 completes; production
+  migration is a future Phase 4
+- **Hosting migration** (GitHub Pages → Cloudflare Pages or Vercel) — required
+  before subdomain-based tenant routing; future phase
 - **Per-tenant branding rendering** — `tenants.branding` column exists, but
   no UI reads it yet; do not render
 - **import.js (production)** — DO NOT modify until production gets Phase 1
   schema. The staging script (`import-staging.js`) is the only patched copy.
+- **Edge Function business logic** — only `tenant_id` changes are in scope
+  until a later phase
+
+### Deferred — architectural concerns noted but not blocking
+- **`claim_paper_account` doesn't filter by tenant** — function reassigns
+  preorders/subscriptions from a paper user to a real user without checking
+  tenant. Currently safe because all data is in one tenant. Worth revisiting
+  before paper-customer flows run cross-tenant.
 
 If a session needs to touch any of the above, stop and confirm with the user first.
 
@@ -365,10 +416,18 @@ If a session needs to touch any of the above, stop and confirm with the user fir
 ## Known Issues & Gotchas
 
 - **PowerShell**: Doesn't support `&&` — run git commands on separate lines
+- **PowerShell + Supabase**: `Invoke-RestMethod` mangles JSON quotes in argv and
+  triggers 401s with new-format `sb_secret_` keys. Use `curl.exe` with
+  `--data-binary @file` for tenant-aware Supabase calls. See `test-magic-link.ps1`
+  for the working pattern.
+- **OneDrive + PowerShell scripts**: OneDrive flags synced `.ps1` files as
+  "downloaded from internet," which blocks execution even with `RemoteSigned`
+  policy. Run `Unblock-File .\<script>.ps1` after each sync.
 - **Supabase `range()`**: Returns 416 on empty result sets — use count-first approach
 - **UTC timezone shift**: Never use `toISOString()` for date display — use local date parts
 - **`config.js`**: Must be restored after every staging→main merge
-- **Import script service key**: Must be `service_role` key, NOT anon key — RLS blocks anon
+- **Import script service key**: Must be `service_role` key (or new-format
+  `sb_secret_` key), NOT anon key — RLS blocks anon
 - **`nav-hamburger`**: Must be present in every HTML file's nav — easy to lose on file updates
 - **Supabase SQL editor bypasses RLS**: It runs as `postgres` superuser. To
   test RLS isolation, simulate an authenticated user inside a transaction with
@@ -377,6 +436,12 @@ If a session needs to touch any of the above, stop and confirm with the user fir
   `EXISTS (SELECT ... FROM user_profiles)` cause infinite recursion → 500
   errors. Use the `current_user_is_admin()` `SECURITY DEFINER` function
   instead. This is already in place post-Phase-1.
+- **Supabase Auth admin `?email=` filter**: Intermittently returns 500 with
+  "Database error finding users" (known GoTrue bug). When listing users by
+  email, query `user_profiles` via PostgREST instead.
+- **Admin label/input warning**: `admin.html` has a DevTools a11y warning
+  ("No label associated with a form field"). Pre-existing, not tenant-related,
+  defer to Phase 3.6 when admin UI work happens.
 
 ---
 
