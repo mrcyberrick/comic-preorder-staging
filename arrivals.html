@@ -384,9 +384,36 @@
   const myRows    = shipment.filter(row => isReserved(row));
   const otherRows = shipment.filter(row => !isReserved(row));
 
+  // ── Hot-fix (post-3.3): include reserved preorders that don't appear in
+  // this week's shipment. This happens when a user reserves an item whose
+  // catalog row exists for thisWednesday but no corresponding shipment row
+  // was imported (e.g. test data, or when the shipment invoice excludes a
+  // title that's still on order). Without this, "full shipment mode" silently
+  // dropped these reservations from the page even though they show up in
+  // the nav bubble, mylist.html, and the admin "This Week" tab.
+  const shipmentCatalogIds = new Set(
+    shipment.map(s => s.catalog?.id).filter(Boolean)
+  );
+  const orphanReserved = myArrivals
+    .filter(p => !shipmentCatalogIds.has(p.catalog?.id))
+    .map(p => ({
+      // Shape a preorder to look like a shipment row so makeCard works unchanged
+      catalog:     p.catalog,
+      distributor: p.catalog?.distributor,
+      title:       p.catalog?.title,
+      price_usd:   p.catalog?.price_usd,
+      quantity:    p.quantity,
+      cover_url:   p.catalog?.cover_url,
+      upc:         p.catalog?.upc,
+      _qty:        p.quantity,
+    }));
+
+  // Prepend orphans so they render alongside (and ahead of) shipment-matched reservations
+  const myRowsCombined = [...orphanReserved, ...myRows];
+
   // Page subtitle: personal count only, with store shipment count as secondary context
-  document.getElementById('page-subtitle').textContent = myRows.length
-    ? `${myRows.length} reserved title${myRows.length !== 1 ? 's' : ''} arriving ${wedDisplay}`
+  document.getElementById('page-subtitle').textContent = myRowsCombined.length
+    ? `${myRowsCombined.length} reserved title${myRowsCombined.length !== 1 ? 's' : ''} arriving ${wedDisplay}`
     : `Nothing reserved this week · ${shipment.length} title${shipment.length !== 1 ? 's' : ''} in store shipment`;
 
   // ── Render cards ──────────────────────────────────────────
@@ -420,27 +447,29 @@
 
   let html = '';
 
-  if (myRows.length) {
+  if (myRowsCombined.length) {
     html += `
       <div class="shipment-divider">
         <span>Your reserved titles</span>
-        <span class="shipment-divider-count">${myRows.length} item${myRows.length !== 1 ? 's' : ''}</span>
+        <span class="shipment-divider-count">${myRowsCombined.length} item${myRowsCombined.length !== 1 ? 's' : ''}</span>
       </div>
       <div class="arrivals-grid" style="margin-bottom:32px">
-        ${myRows.map(r => {
-          // Find matching preorder for quantity
-          const po = myArrivals.find(i =>
-            (i.catalog?.id && i.catalog.id === r.catalog?.id) ||
-            (i.catalog?.upc && i.catalog.upc === r.upc)
-          );
-          r._qty = po?.quantity || r.quantity;
+        ${myRowsCombined.map(r => {
+          // Find matching preorder for quantity (orphans already have _qty set)
+          if (typeof r._qty !== 'number') {
+            const po = myArrivals.find(i =>
+              (i.catalog?.id && i.catalog.id === r.catalog?.id) ||
+              (i.catalog?.upc && i.catalog.upc === r.upc)
+            );
+            r._qty = po?.quantity || r.quantity;
+          }
           return makeCard(r, true);
         }).join('')}
       </div>`;
   }
 
   if (otherRows.length) {
-    const hasPersonalSection = myRows.length > 0;
+    const hasPersonalSection = myRowsCombined.length > 0;
     html += `
       <div class="shipment-divider">
         <span>${hasPersonalSection ? 'Also in this week\'s shipment' : 'This week\'s store shipment'}</span>
@@ -452,7 +481,7 @@
       </div>`;
   }
 
-  if (!myRows.length && !otherRows.length) {
+  if (!myRowsCombined.length && !otherRows.length) {
     html = `
       <div class="arrivals-empty">
         <h2>Nothing in this week's shipment yet</h2>
@@ -471,7 +500,7 @@
   // ── Print table (reserved items only) ────────────────────
   renderPrintTable(myArrivals);
   setupPrintButton(wedDisplay, myArrivals);
-  if (myRows.length || myArrivals.length) {
+  if (myRowsCombined.length || myArrivals.length) {
     document.getElementById('arrivals-toolbar').style.display = 'flex';
   }
 
