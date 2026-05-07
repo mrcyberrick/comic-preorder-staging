@@ -1,6 +1,7 @@
 # Phase 3.3 — Remove `tenant_id` Column Defaults
 
-**Status:** Planning
+**Status:** Complete
+**Completed:** 2026-05-05
 **Branch:** `feature/phase-3.3-remove-column-defaults` (branched from `staging`)
 **Risk:** Medium — removes the safety net established in Phase 1.3
 **Reversible:** Yes (SQL migration to put defaults back, documented below)
@@ -579,23 +580,23 @@ then re-attempt 3.3.
 
 Phase 3.3 is complete when **all** of the following are true on staging:
 
-- [ ] All 7 (or 8) tables have `column_default = NULL` for `tenant_id`
+- [X] All 7 (or 8) tables have `column_default = NULL` for `tenant_id`
       (V1 confirmed)
-- [ ] V2 negative test confirmed: INSERT without `tenant_id` fails
-- [ ] V3 — all four `app.js` write paths still succeed
-- [ ] V4a — invite-customer Edge Function still creates profiles
-- [ ] V4b — create-paper-customer Edge Function still creates profiles
-- [ ] V4c — magic-link script still creates profiles successfully
-- [ ] V5 — import script catalog refresh succeeds
-- [ ] V6 — `archive_stale_reservations` RPC succeeds when called manually
-- [ ] V7 — row counts unchanged
-- [ ] V8 — UsageEvents defensive fallback still resolves correctly
-- [ ] Smoke test rows 1–11 all pass
-- [ ] No code changes made (verify with `git diff --stat`)
-- [ ] `docs/phase-3-tenant-resolution.md` updated with 3.3 status set
+- [X] V2 negative test confirmed: INSERT without `tenant_id` fails
+- [X] V3 — all four `app.js` write paths still succeed
+- [X] V4a — invite-customer Edge Function still creates profiles
+- [X] V4b — create-paper-customer Edge Function still creates profiles
+- [X] V4c — magic-link script still creates profiles successfully
+- [X] V5 — import script catalog refresh succeeds
+- [X] V6 — `archive_stale_reservations` RPC succeeds when called manually
+- [X] V7 — row counts unchanged
+- [X] V8 — UsageEvents defensive fallback still resolves correctly
+- [X] Smoke test rows 1–11 all pass
+- [X] No code changes made (verify with `git diff --stat`)
+- [X] `docs/phase-3-tenant-resolution.md` updated with 3.3 status set
       to "Complete" and the date
-- [ ] `CLAUDE.md` active sub-deploy line updated
-- [ ] No out-of-scope work bundled in
+- [X] `CLAUDE.md` active sub-deploy line updated
+- [X] No out-of-scope work bundled in
 
 ---
 
