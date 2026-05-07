@@ -57,12 +57,10 @@ not exist — write them when their turn comes, not before.
 | 3.1 | Tenant resolution layer (read-only)                | `phase-3.1-tenant-resolution-layer.md`        | Complete    | 2026-05-02  |
 | 3.2 | Explicit tenant_id on app.js writes                | `phase-3.2-explicit-tenant-writes.md`         | Complete    | 2026-05-04  |
 | 3.3 | Remove column defaults                             | `phase-3.3-remove-column-defaults.md`         | Complete    | 2026-05-05  |
-| 3.4 | Analytics views rebuild                            | (not yet written)                             | Pending     | —           |
+| 3.4 | Analytics views rebuild                            | (not yet written — pending 3.3 soak)          | Pending     | —           |
 | 3.5 | Usage events purge job (90-day retention)          | (not yet written)                             | Pending     | —           |
 | 3.6 | Admin operational tooling — Wednesday workflow     | (not yet written)                             | Pending     | —           |
-| —   | **Deferred — fulfillment feature not in active use** |                                            |             |             |
-| ?   | Fulfillment integrity — block customer edits       | (deferred until fulfillment in active use)    | Deferred    | —           |
-| ?   | Partial fulfillment support (schema + UI)          | (deferred — needs product scoping)            | Deferred    | —           |
+| 3.7 | Smoke test automation (Playwright)                 | (not yet written — written before Phase 4)    | Pending     | —           |
 
 Each sub-deploy ends in a working state, smoke-testable, reversible.
 **Do not bundle multiple sub-deploys into one session.** See the
@@ -158,6 +156,32 @@ These items were noted in `phase-2-completion.md` as deferred to Phase 3:
    happens after 3.2 makes them unnecessary)
 
 ---
+
+## Discovered During Soak
+
+**2026-05-06 — arrivals.html: orphan-reserved preorders silently dropped (post-3.3 soak)**
+
+Bug discovered via `test-this-week.ps1` during 3.3 soak. When a user has
+preorders for "this Wednesday" whose catalog rows have no corresponding
+row in `weekly_shipment`, the page silently dropped them — even though
+the nav bubble, mylist.html "Upcoming Arrivals", and admin "This Week"
+tab all showed them correctly.
+
+Root cause: `arrivals.html` enters "full shipment mode" if any rows
+exist in `weekly_shipment` for thisWednesday, then iterates over
+shipment rows to find user-reserved matches. Preorders whose catalog
+isn't represented in shipment had no match path.
+
+This pre-dates Phase 3 and isn't a regression from 3.3. It surfaced
+because the new test tooling created the first scenario where a user
+reserved items dated for thisWednesday that weren't in shipment.
+
+Fix applied inline as part of 3.3 soak (same precedent as 3.1
+`initNav()` resolve and 3.3 `archive_stale_reservations` patches).
+Added `orphanReserved` computation in arrivals.html that finds
+preorders not represented in shipment and merges them with shipment-
+matched reservations into `myRowsCombined`. Five touchpoints in
+arrivals.html updated to render from the combined list.
 
 ## Reference
 
