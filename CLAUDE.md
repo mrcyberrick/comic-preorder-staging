@@ -163,7 +163,8 @@ comic-preorder/                    ← production repo (github.com/mrcyberrick/c
 C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\
   import.js              ← production import script (with prod credentials)
   import-staging.js      ← staging import script (with staging credentials)
-  test-magic-link.ps1    ← reusable PowerShell smoke-test helper
+  test-magic-link.ps1    ← reusable PowerShell smoke-test helper for magic-link auth flow
+  test-this-week.ps1     ← reusable PowerShell helper to populate This Week test data
   .env                   ← script credentials (never committed)
   package.json
   node_modules\
