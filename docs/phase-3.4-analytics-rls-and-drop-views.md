@@ -1,6 +1,7 @@
 # Phase 3.4 — Analytics RLS Verification + Drop Unused Views
 
-**Status:** Planning
+**Status:** Complete
+**Completed:** 2026-05-07
 **Branch:** `feature/phase-3.4-analytics-rls-and-drop-views` (branched from `staging`)
 **Risk:** Low — primarily verification work; mutation surface is a one-transaction DROP of 5 unused views
 **Reversible:** Yes (recreate-views SQL captured below)
@@ -782,39 +783,39 @@ Investigate whatever consumer was missed, then re-attempt 3.4.
 
 Phase 3.4 is complete when **all** of the following are true on staging:
 
-- [ ] Pre-flight 3.3 status sync committed (housekeeping)
-- [ ] Pre-flight 2 confirmed RLS enabled on `usage_events` and `user_profiles`
-- [ ] Pre-flight 4 confirmed no code references the views
-- [ ] V1 confirmed RLS policies and flags unchanged from audit baseline
-- [ ] V2 confirmed Test Admin sees zero fake-tenant rows in any
+- [X] Pre-flight 3.3 status sync committed (housekeeping)
+- [X] Pre-flight 2 confirmed RLS enabled on `usage_events` and `user_profiles`
+- [X] Pre-flight 4 confirmed no code references the views
+- [X] V1 confirmed RLS policies and flags unchanged from audit baseline
+- [X] V2 confirmed Test Admin sees zero fake-tenant rows in any
       direct-table probe (events × all 6 types, plus user_profiles)
-- [ ] V3 confirmed `analytics.html` shows zero leaks across all 13
+- [X] V3 confirmed `analytics.html` shows zero leaks across all 13
       chart-cell observations
-- [ ] V4 confirmed fake-tenant non-admin sees zero rows in
+- [X] V4 confirmed fake-tenant non-admin sees zero rows in
       `usage_events` and only own-profile in `user_profiles`
-- [ ] V5 confirmed anon's `usage_events` query returns empty (not
+- [X] V5 confirmed anon's `usage_events` query returns empty (not
       denied — empty by RLS)
-- [ ] V6 confirmed founding-tenant counts unchanged after seed
-- [ ] V7 confirmed all five views are dropped
-- [ ] V8 confirmed `analytics.html` still works post-drop
-- [ ] V9 confirmed fake tenant cleanup is complete
-- [ ] Smoke test rows 1–7 all pass
-- [ ] Branch `feature/phase-3.4-analytics-rls-and-drop-views` merged
+- [X] V6 confirmed founding-tenant counts unchanged after seed
+- [X] V7 confirmed all five views are dropped
+- [X] V8 confirmed `analytics.html` still works post-drop
+- [X] V9 confirmed fake tenant cleanup is complete
+- [X] Smoke test rows 1–7 all pass
+- [X] Branch `feature/phase-3.4-analytics-rls-and-drop-views` merged
       into `staging`
-- [ ] Staging GitHub Pages deploy succeeded (no code changes — just
+- [X] Staging GitHub Pages deploy succeeded (no code changes — just
       doc commits — so this is mainly verifying the deploy didn't
       regress)
-- [ ] `docs/phase-3-tenant-resolution.md` updated with 3.4 status set
+- [X] `docs/phase-3-tenant-resolution.md` updated with 3.4 status set
       to "Complete" and the date
-- [ ] `docs/phase-3-tenant-resolution.md` "Status" line updated to
+- [X] `docs/phase-3-tenant-resolution.md` "Status" line updated to
       "In progress (sub-deploy 3.5 active)" or
       "soak in progress" if 3.5 plan not yet started
-- [ ] `CLAUDE.md` § Current Migration Phase line updated
-- [ ] `CLAUDE.md` "Discovered During Phase 3 Soak" or equivalent
+- [X] `CLAUDE.md` § Current Migration Phase line updated
+- [X] `CLAUDE.md` "Discovered During Phase 3 Soak" or equivalent
       section updated with Finding E (overly-broad grants)
-- [ ] No code changes made (verify with `git diff --stat` —
+- [X] No code changes made (verify with `git diff --stat` —
       should show only `docs/` files and `CLAUDE.md`)
-- [ ] No out-of-scope work bundled in
+- [X] No out-of-scope work bundled in
 
 ---
 
@@ -895,6 +896,22 @@ Resolve these before starting:
    V2 and V4. V5 is partial duplication. Including it because
    completeness > brevity here, but if time-pressed, V2+V4 covers
    the main exposure.
+
+---
+
+## Execution Notes
+
+**2026-05-07** — Step A failed on first attempt with FK violation:
+`usage_events_user_id_fkey` requires `user_id` to reference a real
+`auth.users` row. The fake customer UUID `cccccccc-...` has no auth
+entry, so events couldn't be tagged to it. Adapted by using Test
+Admin's real user_id (`b758f573-...`) as the `usage_events.user_id`
+while keeping `tenant_id = 'aaaaaaaa-...'`. The isolation test
+remains valid — RLS is enforced on `tenant_id`, and all six V2
+probes confirmed zero cross-tenant leakage. `user_profiles` does
+not share this FK constraint, so the fake customer profile
+(`cccccccc-...`) was inserted successfully and used for V4
+SQL simulation.
 
 ---
 

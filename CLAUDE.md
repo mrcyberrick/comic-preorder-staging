@@ -9,8 +9,8 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 3 — Tenant Resolution
 **Plan (parent):** `docs/phase-3-tenant-resolution.md`
-**Active sub-deploy plan:** `docs/phase-3.4-analytics-rls-and-drop-views.md`
-**Last completed sub-deploy:** 3.3 — see `docs/phase-3.3-remove-column-defaults.md`
+**Active sub-deploy plan:** Sub-deploy 3.4 complete. 3.5 plan pending — soak in progress.
+**Last completed sub-deploy:** 3.4 — see `docs/phase-3.4-analytics-rls-and-drop-views.md`
 **Last completed phase:** Phase 2 — see `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
 
@@ -18,7 +18,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 - Phase 4+ work (production migration, hosting migration, self-service tenant signup, billing, branding rendering)
 - Production deploys of any kind
 - Edge Function business logic changes beyond passing `tenant_id`
-- Sub-deploys not yet active (3.4 analytics views, 3.5 usage events purge, 3.6 admin operational tooling)
+- Sub-deploys not yet active (3.5 usage events purge, 3.6 admin operational tooling)
 - The two deferred fulfillment bugs (customer can cancel fulfilled item; partial fulfillment) — see Known Out-of-Scope Items
 
 Before proposing any work, read the active phase docs and confirm the proposed
@@ -409,6 +409,15 @@ agentic sessions without explicit user approval:
   preorders/subscriptions from a paper user to a real user without checking
   tenant. Currently safe because all data is in one tenant. Worth revisiting
   before paper-customer flows run cross-tenant.
+- **Overly-broad table grants on `usage_events` and `user_profiles`
+  (Finding E, discovered during 3.4)** — `anon`, `authenticated`, and
+  `service_role` all hold the full table-level privilege set (DELETE, INSERT,
+  REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE). RLS prevents actual data
+  exposure (verified in 3.4 V1–V5), but grants are wider than necessary in a
+  defense-in-depth model. Other tenant-scoped tables (`preorders`,
+  `subscriptions`, etc.) likely share the same shape. Recommended follow-up:
+  a dedicated hardening sub-deploy (3.7+ or Phase 4 prerequisite) that audits
+  and tightens table-level grants across all tenant-scoped tables.
 
 If a session needs to touch any of the above, stop and confirm with the user first.
 
