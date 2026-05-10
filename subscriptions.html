@@ -286,21 +286,14 @@
   }
 
   let allSubs = [];
-  let popularSeries = []; // loaded once from settings table
+  let popularSeries = []; // loaded once from app_settings
 
-  // Fetches the admin-curated popular series list from the settings table.
-  // Expects settings.value to be a JSON array: [{ series_name, distributor, publisher }, ...]
-  // Returns [] gracefully if the key doesn't exist yet.
   async function loadPopularSeries() {
     try {
-      const { data } = await db
-        .from('settings')
-        .select('value')
-        .eq('key', 'popular_series')
-        .maybeSingle();
-      if (data?.value) popularSeries = JSON.parse(data.value);
+      const value = await Settings.get('popular_series');
+      if (value) popularSeries = JSON.parse(value);
     } catch(e) {
-      // Settings key not set yet — silently ignore
+      // Settings key not set yet or JSON parse error — silently ignore
     }
   }
 
