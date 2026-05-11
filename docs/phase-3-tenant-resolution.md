@@ -1,6 +1,6 @@
 # Phase 3 — Tenant Resolution
 
-**Status:** In progress (3.5 complete, 3.6 plan pending — soak)
+**Status:** In progress (3.6 complete, 3.7 plan pending)
 **Branch base:** `staging`
 **Started:** 2026-05-01
 **Estimated total duration:** 3–6 weekend sessions across all four sub-deploys
@@ -59,7 +59,7 @@ not exist — write them when their turn comes, not before.
 | 3.3 | Remove column defaults                             | `phase-3.3-remove-column-defaults.md`         | Complete    | 2026-05-05  |
 | 3.4 | Analytics views rebuild                            | `phase-3.4-analytics-rls-and-drop-views.md`   | Complete    | 2026-05-07  |
 | 3.5 | Usage events purge job (90-day retention)          | `phase-3.5-usage-events-purge.md`             | Complete    | 2026-05-10  |
-| 3.6 | Admin operational tooling — Wednesday workflow     | (not yet written)                             | Pending     | —           |
+| 3.6 | Admin operational tooling — Wednesday workflow     | `phase-3.6-admin-wednesday-tooling.md`        | Complete    | 2026-05-11  |
 | 3.7 | Smoke test automation (Playwright)                 | (not yet written — written before Phase 4)    | Pending     | —           |
 
 Each sub-deploy ends in a working state, smoke-testable, reversible.
@@ -130,7 +130,7 @@ that should have been pure tenant-awareness work. Don't repeat that.
 
 Phase 3 is complete when **all** of the following are true on staging:
 
-- [ ] All four sub-deploys (3.1, 3.2, 3.3, 3.4) marked Complete in the table above
+- [ ] All sub-deploys in the Sub-Deploys table above marked Complete
 - [ ] `app.js` writes all pass `tenant_id` explicitly (verifiable by `grep`)
 - [ ] All `tenant_id` column defaults removed from the database (verifiable by `\d <table>`)
 - [ ] Analytics views all filter by `current_tenant_id()` (verifiable by `pg_get_viewdef`)
@@ -254,4 +254,42 @@ Architectural notes for later (logged here, not actioned in 3.4):
 
 ---
 
-**Last updated:** 2026-05-10 (sub-deploy 3.5 complete)
+**2026-05-11 — Phase 3.6 hot-fixes bundled at sub-deploy boundary**
+
+Two bugs documented in CLAUDE.md as deferred to 3.6 were fixed as part
+of the admin operational tooling sub-deploy. Promoted from "Known Out-
+of-Scope" to fixed findings in `docs/technical-reference.md`:
+
+1. **Customer can DELETE a fulfilled preorder via `Preorders.cancel`** —
+   added a pre-DELETE fulfilled-check in `app.js` plus a defensive
+   `.eq('fulfilled', false)` filter on the DELETE itself. `mylist.html`
+   replaces the per-row Remove button with an "✓ In hand" chip when
+   `fulfilled = true`, mirroring the existing FOC-lock pattern. Both
+   layers — UI and API — protect the audit trail. (F37)
+
+2. **admin.html label/input a11y warning** — six inputs (`deadline-input`,
+   `admin-search`, `paper-new-name`, `paper-catalog-search`,
+   `invite-name`, `invite-email`) now have `<label for="...">`
+   associations. Inputs whose visible text was rendered as `<span>` now
+   render as `<label>`; placeholder-only inputs received hidden labels.
+   `.visually-hidden` utility class added to `style.css`. (F38)
+
+Phase 3.6 also introduced `auto_fulfill_past_on_sale(uuid)`, a new
+SECURITY DEFINER SQL function called by `import-staging.js` at the end
+of each weekly run. It marks preorders fulfilled when their on-sale
+date has passed, treating them as in-hand at the store. The manual
+bulk-fulfill-by-title path remains for pre-FOC rush orders.
+
+The admin.html This Week tab was rewritten as a bagging list with
+per-customer cards, checkboxes, week navigation (Prev/Today/Next), a
+Print Bagging List button, and per-customer "your books are in" email.
+
+Files changed:
+- `docs/sql/auto_fulfill_past_on_sale.sql` (new)
+- `app.js` (`Preorders.cancel` guard)
+- `mylist.html` (cancel UI mirrors FOC-lock pattern, adds "In hand" chip)
+- `admin.html` (This Week tab rewrite + a11y labels + week nav + print)
+- `style.css` (print rules + `.visually-hidden` utility)
+- `import-staging.js` (local scripts folder; new Step 9 added by user)
+
+**Last updated:** 2026-05-11 (sub-deploy 3.6 complete)

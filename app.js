@@ -684,11 +684,29 @@ const Preorders = {
   },
 
   async cancel(userId, catalogId) {
+    // Guard: refuse to cancel a fulfilled row. This protects the audit
+    // trail (fulfilled_at timestamp) and prevents customers from wiping
+    // out a row the store has already counted as in-hand. The post-on-sale
+    // auto-fulfill (Phase 3.6) means many rows will be fulfilled even
+    // though no admin ever clicked anything.
+    const { data: existing, error: lookupErr } = await db
+      .from('preorders')
+      .select('id, fulfilled')
+      .eq('user_id', userId)
+      .eq('catalog_id', catalogId)
+      .maybeSingle();
+    if (lookupErr) return { error: lookupErr };
+    if (!existing) return { error: { message: 'Reservation not found' } };
+    if (existing.fulfilled) {
+      return { error: { message: "Can't cancel — this item is already in hand. Ask the store to revert fulfillment first." } };
+    }
+
     const { error } = await db
       .from('preorders')
       .delete()
       .eq('user_id', userId)
-      .eq('catalog_id', catalogId);
+      .eq('catalog_id', catalogId)
+      .eq('fulfilled', false); // defensive race guard
     return { error };
   },
 

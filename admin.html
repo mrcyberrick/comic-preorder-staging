@@ -100,7 +100,7 @@
       </button>
       <!-- Order Deadline -->
       <div class="deadline-group" style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:0.82rem;color:var(--text-muted);font-weight:500;white-space:nowrap">Order Deadline</span>
+        <label for="deadline-input" style="font-size:0.82rem;color:var(--text-muted);font-weight:500;white-space:nowrap">Order Deadline</label>
         <input type="date" id="deadline-input"
           style="background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);
                  color:var(--text-primary);font-family:var(--font-body);font-size:0.82rem;
@@ -201,6 +201,7 @@
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
+        <label for="admin-search" class="visually-hidden">Search reservations</label>
         <input type="text" class="search-input" id="admin-search" placeholder="Search any field…">
       </div>
     </div>
@@ -209,6 +210,21 @@
 
   <!-- Tab: This Week -->
   <div class="admin-section" id="tab-this-week">
+    <div class="week-nav-toolbar" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button class="btn btn-secondary btn-sm" id="btn-week-prev" title="Previous week">&larr; Prev</button>
+        <button class="btn btn-secondary btn-sm" id="btn-week-today">Today</button>
+        <button class="btn btn-secondary btn-sm" id="btn-week-next" title="Next week">Next &rarr;</button>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btn-print-this-week"
+              style="display:flex;align-items:center;gap:6px">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect x="6" y="14" width="12" height="8"/>
+        </svg>
+        Print Bagging List
+      </button>
+    </div>
     <div id="this-week-header" style="margin-bottom:16px"></div>
     <div id="this-week-groups">
       <div class="empty-state"><p>Loading…</p></div>
@@ -284,6 +300,7 @@
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Add Paper Customer</div>
         <div style="display:flex;gap:8px;align-items:center">
+          <label for="paper-new-name" class="visually-hidden">New paper customer name</label>
           <input id="paper-new-name" type="text" placeholder="Customer name"
             style="flex:1;background:var(--bg-elevated);border:1px solid var(--border);
                    color:var(--text-primary);padding:8px 12px;border-radius:var(--radius);
@@ -299,6 +316,7 @@
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
         <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Add Title to Order</div>
         <div style="position:relative">
+          <label for="paper-catalog-search" class="visually-hidden">Search catalog for paper order</label>
           <input id="paper-catalog-search" type="text" placeholder="Search catalog by title, series, writer…"
             style="width:100%;background:var(--bg-elevated);border:1px solid var(--border);
                    color:var(--text-primary);padding:8px 12px;border-radius:var(--radius);
@@ -369,7 +387,7 @@
 
     <div style="display:flex;flex-direction:column;gap:16px">
       <div>
-        <label style="display:block;font-size:0.78rem;font-weight:600;
+        <label for="invite-name" style="display:block;font-size:0.78rem;font-weight:600;
                        color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.04em">
           FULL NAME
         </label>
@@ -379,7 +397,7 @@
                  font-size:0.9rem;box-sizing:border-box">
       </div>
       <div>
-        <label style="display:block;font-size:0.78rem;font-weight:600;
+        <label for="invite-email" style="display:block;font-size:0.78rem;font-weight:600;
                        color:var(--text-secondary);margin-bottom:6px;letter-spacing:0.04em">
           EMAIL ADDRESS
         </label>
@@ -1070,11 +1088,13 @@
     return `${y}-${m}-${d}`;
   }
 
-  async function renderThisWeek() {
-    const thisWednesday = getThisWednesday();
+  // Tab-local state: which week's Wednesday is the current anchor.
+  let weekAnchorWednesday = null;
 
-    // Week range: Monday (Wed-2) through Saturday (Wed+3)
-    const [wy, wm, wd] = thisWednesday.split('-').map(Number);
+  async function renderThisWeek() {
+    if (!weekAnchorWednesday) weekAnchorWednesday = getThisWednesday();
+
+    const [wy, wm, wd] = weekAnchorWednesday.split('-').map(Number);
     const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const weekStart = fmtDate(new Date(wy, wm - 1, wd - 2));
     const weekEnd   = fmtDate(new Date(wy, wm - 1, wd + 3));
@@ -1160,41 +1180,104 @@
     const grouped = {};
     arriving.forEach(p => {
       const key = p.customer_name;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(p);
+      if (!grouped[key]) grouped[key] = { user_id: p.user_id, items: [] };
+      grouped[key].items.push(p);
     });
 
     container.innerHTML = Object.entries(grouped)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([name, items]) => {
-        const total      = items.reduce((s, p) => s + ((parseFloat(p.catalog?.price_usd)||0) * (p.quantity||1)), 0);
-        const totalQty   = items.reduce((s, p) => s + (p.quantity||1), 0);
-        const lunarCount = items.filter(p => p.catalog?.distributor === 'Lunar').reduce((s,p) => s+(p.quantity||1), 0);
-        const prhCount   = items.filter(p => p.catalog?.distributor === 'PRH').reduce((s,p) => s+(p.quantity||1), 0);
+      .map(([name, group]) => {
+        const items    = group.items.slice().sort((a, b) => (a.catalog?.title || '').localeCompare(b.catalog?.title || ''));
+        const total    = items.reduce((s, p) => s + ((parseFloat(p.catalog?.price_usd)||0) * (p.quantity||1)), 0);
+        const totalQty = items.reduce((s, p) => s + (p.quantity||1), 0);
+
+        const rows = items.map(p => {
+          const c    = p.catalog || {};
+          const qty  = p.quantity || 1;
+          const unit = parseFloat(c.price_usd) || 0;
+          const line = unit * qty;
+          const qtyTxt = qty > 1 ? ` <span style="color:var(--text-muted)">× ${qty} = $${line.toFixed(2)}</span>` : '';
+          return `
+            <li class="bagging-row" style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.92rem">
+              <input type="checkbox" class="bagging-check" ${p.fulfilled ? 'checked' : ''} aria-label="Picked up ${escapeHtml(c.title || '')}">
+              <span style="flex:1">${escapeHtml(c.title || '—')}${qtyTxt}</span>
+              <span style="font-weight:600;color:var(--text-secondary);white-space:nowrap">$${unit.toFixed(2)}</span>
+            </li>`;
+        }).join('');
+
         return `
-          <div class="customer-group">
-            <div class="customer-group-header">
+          <div class="customer-group bagging-customer-card" data-user-id="${group.user_id}">
+            <div class="customer-group-header" style="cursor:default">
               <div>
                 <div class="customer-group-name">${escapeHtml(name)}</div>
-                <div class="customer-group-meta">${totalQty} item${totalQty!==1?'s':''} · Est. $${total.toFixed(2)} · Lunar: ${lunarCount} · PRH: ${prhCount}</div>
+                <div class="customer-group-meta">${totalQty} item${totalQty!==1?'s':''} · Est. $${total.toFixed(2)}</div>
               </div>
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="m6 9 6 6 6-6"/>
-              </svg>
+              <button class="btn btn-secondary btn-sm bagging-email-btn no-print"
+                      data-user-id="${group.user_id}" data-user-name="${escapeHtml(name)}"
+                      title='Send "your books are in" reminder email'>
+                <span style="font-size:0.9rem">&#9993;</span>&nbsp;Email
+              </button>
             </div>
-            <div class="customer-group-body">
-              ${renderMiniTable(items)}
+            <div class="customer-group-body" style="display:block">
+              <ul style="list-style:none;padding:0;margin:0">
+                ${rows}
+              </ul>
+              <div style="display:flex;justify-content:flex-end;padding:8px 0 0;margin-top:8px;border-top:1px solid var(--border);font-weight:700">
+                TOTAL:&nbsp;<span style="color:var(--accent);min-width:80px;text-align:right">$${total.toFixed(2)}</span>
+              </div>
             </div>
           </div>`;
       }).join('');
 
-    // Collapsible
-    container.querySelectorAll('.customer-group-header').forEach(header => {
-      header.addEventListener('click', () => {
-        header.closest('.customer-group').classList.toggle('open');
+    // Wire email buttons
+    container.querySelectorAll('.bagging-email-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uid  = btn.dataset.userId;
+        const name = btn.dataset.userName;
+        if (!confirm(`Send pull-list email to ${name}?`)) return;
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+        const { data: sess } = await db.auth.getSession();
+        const token = sess?.session?.access_token;
+        if (!token) {
+          toast('Session expired — please re-login', 'error');
+          btn.disabled = false;
+          btn.innerHTML = '✉&nbsp;Email';
+          return;
+        }
+        const { error } = await MyList.sendConfirmation(uid, token);
+        if (error) {
+          toast('Failed to send: ' + (error.message || error), 'error');
+          btn.disabled = false;
+          btn.innerHTML = '✉&nbsp;Email';
+        } else {
+          toast(`Email sent to ${name}`);
+          btn.innerHTML = '✓ Sent';
+        }
       });
     });
   }
+
+  // Week nav handlers
+  function shiftWeek(days) {
+    const [y, m, d] = (weekAnchorWednesday || getThisWednesday()).split('-').map(Number);
+    const dt = new Date(y, m - 1, d + days);
+    weekAnchorWednesday = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    renderThisWeek();
+  }
+  document.getElementById('btn-week-prev').addEventListener('click', () => shiftWeek(-7));
+  document.getElementById('btn-week-next').addEventListener('click', () => shiftWeek(7));
+  document.getElementById('btn-week-today').addEventListener('click', () => {
+    weekAnchorWednesday = getThisWednesday();
+    renderThisWeek();
+  });
+
+  // Print
+  document.getElementById('btn-print-this-week').addEventListener('click', () => {
+    document.body.classList.add('printing-this-week');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing-this-week'), 1000);
+  });
 
   // Load This Week when tab is clicked
   document.querySelector('[data-tab="this-week"]').addEventListener('click', () => {

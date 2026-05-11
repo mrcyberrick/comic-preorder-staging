@@ -9,8 +9,8 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 3 — Tenant Resolution
 **Plan (parent):** `docs/phase-3-tenant-resolution.md`
-**Active sub-deploy plan:** Sub-deploy 3.5 complete. 3.6 plan pending — soak in progress.
-**Last completed sub-deploy:** 3.5 — see `docs/phase-3.5-usage-events-purge.md`
+**Active sub-deploy plan:** Sub-deploy 3.6 complete. 3.7 (Playwright smoke automation) is the last remaining sub-deploy in Phase 3.
+**Last completed sub-deploy:** 3.6 — see `docs/phase-3.6-admin-wednesday-tooling.md`
 **Last completed phase:** Phase 2 — see `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
 
@@ -382,10 +382,6 @@ agentic sessions without explicit user approval:
   print buttons) — pending sub-deploy 3.6
 
 ### Deferred — feature not in active use, no urgency
-- **Customer can cancel a fulfilled preorder** — data integrity bug discovered
-  during Phase 3.2 smoke testing. The Mark Fulfilled feature is not currently
-  in operational use, so impact is zero today. Will revisit when fulfillment
-  workflow is exercised (likely as part of 3.6).
 - **Partial fulfillment not representable** — when a customer reserves quantity
   3 of an item, the system can mark the whole row fulfilled or unfulfilled but
   not "2 of 3 fulfilled, 1 still pending." This is a feature, not a bug — a
@@ -427,6 +423,10 @@ agentic sessions without explicit user approval:
       `upsertShipment()` row builders)
     - All other `TENANT_ID` references that exist in the staging
       script as of the cutover date
+    - Phase 3.6 auto-fulfill RPC call: a new Step 9 calling
+      `auto_fulfill_past_on_sale(p_tenant_id)` immediately before the
+      `"✅ Import complete!"` line. Mirrors the Phase 3.5 purge call;
+      same shape, same tenant ID resolution.
   - Until production gets Phase 1 schema, **do not** apply these
     patches — production schema does not have `tenant_id` columns
     and the patches will fail.
@@ -463,9 +463,6 @@ If a session needs to touch any of the above, stop and confirm with the user fir
 - **Supabase Auth admin `?email=` filter**: Intermittently returns 500 with
   "Database error finding users" (known GoTrue bug). When listing users by
   email, query `user_profiles` via PostgREST instead.
-- **Admin label/input warning**: `admin.html` has a DevTools a11y warning
-  ("No label associated with a form field"). Pre-existing, not tenant-related,
-  defer to Phase 3.6 when admin UI work happens.
 - **import-staging.js was hot-patched on 2026-05-08** for a
   `weekly_shipment` tenant_id NOT NULL violation. Two row-object
   literals in `upsertShipment()` now pass `tenant_id: TENANT_ID`.

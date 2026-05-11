@@ -433,6 +433,16 @@ Customer reservations. Join row between a `user_profiles.id` and a
   latter marks every preorder for a catalog item at once, used when an
   entire title arrives). The partial index on `fulfilled = false` supports
   the admin's active-orders query.
+- Phase 3.6 introduced automatic fulfillment: rows are marked
+  `fulfilled = true` when `catalog.on_sale_date < CURRENT_DATE` via the
+  `auto_fulfill_past_on_sale` function called from the weekly import.
+  Manual fulfillment (pre-FOC rush orders) remains the exception path
+  via `Preorders.setFulfilledByCatalogId()`.
+- `Preorders.cancel` (app.js) refuses to delete fulfilled rows. The
+  guard is a pre-DELETE row check plus a defensive
+  `.eq('fulfilled', false)` filter on the DELETE itself. `mylist.html`
+  hides the per-row Remove button for fulfilled rows, replacing it with
+  an "✓ In hand" chip.
 
 ### 4.5 `reservation_history`
 
@@ -869,7 +879,26 @@ this function.
 
 **Source:** `docs/sql/purge_old_usage_events.sql`.
 
-### 6.6 Account merge (unused)
+### 6.6 Operational
+
+#### `auto_fulfill_past_on_sale(p_tenant_id uuid) → integer`
+
+Per-tenant operational function. Sets `fulfilled = true, fulfilled_at = now()`
+on every `preorders` row that belongs to the given tenant, has
+`fulfilled = false`, and whose joined `catalog.on_sale_date < CURRENT_DATE`.
+Returns the count of rows updated.
+
+- Mode: `SECURITY DEFINER`, `SET search_path = public`
+- Grants: `EXECUTE` to `service_role` only
+- Called by: `import-staging.js` end-of-run (one call per weekly invocation)
+- Idempotent: a subsequent invocation with no new past-on-sale rows returns 0.
+- The manual fulfill path via `Preorders.setFulfilledByCatalogId()` is
+  unaffected — rows already marked fulfilled are left alone by the
+  `fulfilled = false` filter in the WHERE clause.
+
+**Source:** `docs/sql/auto_fulfill_past_on_sale.sql`.
+
+### 6.7 Account merge (unused)
 
 #### `claim_paper_account(paper_user_id uuid, real_user_id uuid) → void`
 
@@ -1911,6 +1940,32 @@ production-staging URL bug unrelated to multi-tenancy (F35).
   path read during this discovery pass.
 - **Fix:** drop the function, or wire `claim-paper-customer` to call it
   via RPC for consistency.
+
+#### F37 — Customer could DELETE fulfilled preorders via `Preorders.cancel`
+- **Status:** fixed 2026-05-11 — added pre-DELETE fulfilled-check in
+  `Preorders.cancel` (app.js) plus a defensive `.eq('fulfilled', false)`
+  filter on the DELETE statement; `mylist.html` cancel button replaced
+  with an "✓ In hand" chip on fulfilled rows.
+- The original `Preorders.cancel` was an unconditional DELETE on the
+  composite `(user_id, catalog_id)` key with no fulfilled-state check. A
+  customer pressing Remove on a fulfilled row would destroy the audit
+  trail (`fulfilled_at` timestamp). Surfaced during Phase 3.2 smoke
+  testing; deferred to Phase 3.6 because the auto-fulfill rollout meant
+  many more rows would carry `fulfilled = true` than before.
+- **Where:** `Preorders.cancel` in `app.js`; cancel button render in
+  `mylist.html`.
+- **Fix:** as described in Status.
+
+#### F38 — admin.html had labelless form inputs (DevTools a11y warning)
+- **Status:** fixed 2026-05-11 — six inputs received `<label for="...">`
+  associations (`deadline-input`, `admin-search`, `paper-new-name`,
+  `paper-catalog-search`, `invite-name`, `invite-email`); a
+  `.visually-hidden` utility class added to `style.css` for inputs whose
+  visible cue was only a placeholder.
+- Pre-existing accessibility gap. Cumulative DevTools warning of "No
+  label associated with a form field" across the admin dashboard.
+- **Where:** `admin.html`.
+- **Fix:** as described in Status.
 
 ---
 

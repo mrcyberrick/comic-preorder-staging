@@ -178,6 +178,56 @@ button { cursor: pointer; font-family: var(--font-body); }
 }
 @media print { .pickup-notice { display: none !important; } }
 
+/* Phase 3.6 — visually-hidden utility (for a11y labels on placeholder-only inputs) */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
+/* Phase 3.6 — This Week bagging list print styles */
+@media print {
+  body.printing-this-week .nav,
+  body.printing-this-week .admin-controls,
+  body.printing-this-week .stat-grid,
+  body.printing-this-week .admin-tabs,
+  body.printing-this-week .admin-section:not(#tab-this-week),
+  body.printing-this-week .week-nav-toolbar,
+  body.printing-this-week #btn-print-this-week,
+  body.printing-this-week .no-print,
+  body.printing-this-week #toast-container,
+  body.printing-this-week .footer {
+    display: none !important;
+  }
+  body.printing-this-week .bagging-customer-card {
+    page-break-after: always;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+  }
+  body.printing-this-week .bagging-customer-card:last-child {
+    page-break-after: auto;
+  }
+  body.printing-this-week .bagging-customer-card .customer-group-name {
+    font-size: 14pt;
+    font-weight: 700;
+    border-bottom: 2px solid #000;
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+  body.printing-this-week .bagging-row {
+    font-size: 11pt;
+    color: black !important;
+  }
+  body.printing-this-week .bagging-check {
+    width: 14px;
+    height: 14px;
+  }
+}
+
 /* ── Login Page ────────────────────────────────────────────── */
 .login-page {
   min-height: 100vh;
