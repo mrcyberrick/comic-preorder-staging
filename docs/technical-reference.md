@@ -2,7 +2,7 @@
 
 **Environment:** staging Supabase project `puoaiyezsreowpwxzxhj.supabase.co`
 **Founding tenant UUID:** `72e29f67-39f7-42bc-a4d5-d6f992f9d790` (slug `raysandjudys`)
-**Last verified:** post Phase 3.4 soak, May 2026.
+**Last verified:** post Phase 3.5 soak, May 2026.
 
 This document is the canonical schema and architecture reference for the
 PULLLIST staging environment. Production diverges from staging until Phase 4
@@ -48,7 +48,7 @@ Browser (GitHub Pages, staging-only branch)
         │
         ▼
   Supabase staging (puoaiyezsreowpwxzxhj.supabase.co)
-  ├── PostgreSQL (10 tables, 1 view, 8 functions)
+  ├── PostgreSQL (10 tables, 1 view, 9 functions)
   ├── Auth (email/password + invite + magic-link flows)
   ├── RLS (enabled on every public table)
   └── Edge Functions
@@ -589,7 +589,10 @@ session) takes a meaningful action.
   `logout`.
 - RLS allows authenticated users to INSERT their own (with
   `tenant_id = current_tenant_id()`) and admins to SELECT their tenant's;
-  no UPDATE or DELETE policy exists — events are append-only.
+  no UPDATE or DELETE policy exists — events are append-only from the
+  RLS perspective. The retention purge (see §6.6 — `purge_old_usage_events`)
+  is the one sanctioned DELETE path and runs as `SECURITY DEFINER` via
+  service-role from the import script.
 - Admin-impersonated sessions skip event logging entirely
   (`AdminContext.isActive()` short-circuits `_log()`).
 
@@ -843,7 +846,30 @@ counts unioned across every tenant. See F20 — dormant under one tenant,
 becomes a customer-facing cross-tenant analytics leak when tenant 2
 onboards.
 
-### 6.5 Account merge (unused)
+### 6.5 Retention
+
+#### `purge_old_usage_events(p_tenant_id uuid, p_retention_days integer) → integer`
+
+```
+LANGUAGE sql SECURITY DEFINER  SET search_path = public
+```
+
+Hard-deletes rows from `usage_events` where `tenant_id = p_tenant_id`
+and `created_at < now() - make_interval(days => p_retention_days)`.
+Returns the count of deleted rows.
+
+**Caller:** `import-staging.js` Step 8, invoked at the end of every
+import run with `TENANT_ID` and `90`. Failure is logged but non-fatal —
+the import completes regardless.
+
+**Grants:** EXECUTE granted only to `service_role`; REVOKE ALL FROM
+PUBLIC plus explicit REVOKE from `anon` and `authenticated` (Supabase
+auto-grants those on function creation). No customer code path can invoke
+this function.
+
+**Source:** `docs/sql/purge_old_usage_events.sql`.
+
+### 6.6 Account merge (unused)
 
 #### `claim_paper_account(paper_user_id uuid, real_user_id uuid) → void`
 
@@ -1184,10 +1210,10 @@ UsageEvents.logout(userId)
 ```
 
 Tenant_id is resolved defensively from `TenantContext.current()` with a
-fallback to the founding-tenant constant in case `TenantContext.resolve()`
+fallback to `FOUNDING_TENANT.id` in case `TenantContext.resolve()`
 hasn't completed (this can happen because UsageEvents fires from arbitrary
-page lifecycle points). The fallback comment in app.js mentions a
-"DB column default" safety net which Phase 3.3 removed (F31).
+page lifecycle points). Phase 3.3 removed the `tenant_id` column default;
+`FOUNDING_TENANT.id` is now the only safety net (F31 — fixed 2026-05-10).
 
 ### 10.8 `MyList`
 
@@ -1812,8 +1838,10 @@ production-staging URL bug unrelated to multi-tenancy (F35).
   client-side as `admin.html` already does for the per-customer view.
 
 #### F31 — stale comment in `UsageEvents._log`
-- **Status:** confirmed
-- Lines 531-532 say "The DB column default is the final safety net" but
+- **Status:** fixed 2026-05-10 — comment rewritten to name
+  `FOUNDING_TENANT.id` as the safety net and to note that Phase 3.3
+  removed the column default. No behavior change.
+- Lines 531-532 said "The DB column default is the final safety net" but
   Phase 3.3 removed all `tenant_id` column defaults including
   `usage_events.tenant_id`. The fallback to `FOUNDING_TENANT.id`
   (line 536) is now the actual safety net.

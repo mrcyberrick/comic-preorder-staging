@@ -1,6 +1,6 @@
 # Phase 3 — Tenant Resolution
 
-**Status:** In progress (3.4 complete, 3.5 plan pending — soak)
+**Status:** In progress (3.5 complete, 3.6 plan pending — soak)
 **Branch base:** `staging`
 **Started:** 2026-05-01
 **Estimated total duration:** 3–6 weekend sessions across all four sub-deploys
@@ -58,7 +58,7 @@ not exist — write them when their turn comes, not before.
 | 3.2 | Explicit tenant_id on app.js writes                | `phase-3.2-explicit-tenant-writes.md`         | Complete    | 2026-05-04  |
 | 3.3 | Remove column defaults                             | `phase-3.3-remove-column-defaults.md`         | Complete    | 2026-05-05  |
 | 3.4 | Analytics views rebuild                            | `phase-3.4-analytics-rls-and-drop-views.md`   | Complete    | 2026-05-07  |
-| 3.5 | Usage events purge job (90-day retention)          | (not yet written)                             | Pending     | —           |
+| 3.5 | Usage events purge job (90-day retention)          | `phase-3.5-usage-events-purge.md`             | Complete    | 2026-05-10  |
 | 3.6 | Admin operational tooling — Wednesday workflow     | (not yet written)                             | Pending     | —           |
 | 3.7 | Smoke test automation (Playwright)                 | (not yet written — written before Phase 4)    | Pending     | —           |
 
@@ -254,4 +254,4 @@ Architectural notes for later (logged here, not actioned in 3.4):
 
 ---
 
-**Last updated:** 2026-05-07 (sub-deploy 3.4 complete)
+**Last updated:** 2026-05-10 (sub-deploy 3.5 complete)

@@ -9,8 +9,8 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 3 — Tenant Resolution
 **Plan (parent):** `docs/phase-3-tenant-resolution.md`
-**Active sub-deploy plan:** Sub-deploy 3.4 complete. 3.5 plan pending — soak in progress.
-**Last completed sub-deploy:** 3.4 — see `docs/phase-3.4-analytics-rls-and-drop-views.md`
+**Active sub-deploy plan:** Sub-deploy 3.5 complete. 3.6 plan pending — soak in progress.
+**Last completed sub-deploy:** 3.5 — see `docs/phase-3.5-usage-events-purge.md`
 **Last completed phase:** Phase 2 — see `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
 
@@ -18,7 +18,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 - Phase 4+ work (production migration, hosting migration, self-service tenant signup, billing, branding rendering)
 - Production deploys of any kind
 - Edge Function business logic changes beyond passing `tenant_id`
-- Sub-deploys not yet active (3.5 usage events purge, 3.6 admin operational tooling)
+- Sub-deploys not yet active (3.6 admin operational tooling)
 - The two deferred fulfillment bugs (customer can cancel fulfilled item; partial fulfillment) — see Known Out-of-Scope Items
 
 Before proposing any work, read the active phase docs and confirm the proposed
@@ -378,7 +378,6 @@ agentic sessions without explicit user approval:
 
 ### Pending — will be addressed in scheduled sub-deploys
 - **Analytics views** (`analytics_*`) — pending sub-deploy 3.4
-- **Usage events purge job** (90-day retention) — pending sub-deploy 3.5
 - **Admin operational tooling** (Wednesday workflow printouts, per-customer
   print buttons) — pending sub-deploy 3.6
 

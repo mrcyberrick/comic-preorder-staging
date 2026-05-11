@@ -527,8 +527,9 @@ const UsageEvents = {
 
     // Resolve tenant_id defensively — UsageEvents may be called before
     // TenantContext.resolve() completes (it's fire-and-forget from anywhere).
-    // Fall back to the founding tenant constant if TenantContext isn't ready.
-    // The DB column default is the final safety net.
+    // Fall back to FOUNDING_TENANT.id if TenantContext isn't ready.
+    // (Phase 3.3 removed the tenant_id column default — this fallback
+    //  is now the only safety net.)
     let tenantId;
     try {
       tenantId = TenantContext.current().id;
