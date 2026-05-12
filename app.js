@@ -698,7 +698,7 @@ const Preorders = {
     if (lookupErr) return { error: lookupErr };
     if (!existing) return { error: { message: 'Reservation not found' } };
     if (existing.fulfilled) {
-      return { error: { message: "Can't cancel — this item is already in hand. Ask the store to revert fulfillment first." } };
+      return { error: { message: "Can't cancel — the order for this item has already been placed. Ask the store to revert fulfillment first." } };
     }
 
     const { error } = await db

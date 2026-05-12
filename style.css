@@ -188,8 +188,12 @@ button { cursor: pointer; font-family: var(--font-body); }
 }
 
 /* Phase 3.6 — This Week bagging list print styles */
+.bagging-print-header { display: none; }
+
 @media print {
   body.printing-this-week .nav,
+  body.printing-this-week .page-header,
+  body.printing-this-week #this-week-header,
   body.printing-this-week .admin-controls,
   body.printing-this-week .stat-grid,
   body.printing-this-week .admin-tabs,
@@ -200,6 +204,26 @@ button { cursor: pointer; font-family: var(--font-body); }
   body.printing-this-week #toast-container,
   body.printing-this-week .footer {
     display: none !important;
+  }
+  body.printing-this-week {
+    background: white !important;
+    color: black !important;
+    font-family: Arial, sans-serif !important;
+  }
+  body.printing-this-week .container {
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+  body.printing-this-week .bagging-print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #ccc;
+    font-size: 0.8rem;
+    color: #444;
   }
   body.printing-this-week .bagging-customer-card {
     page-break-after: always;
