@@ -1093,6 +1093,7 @@
 
   async function renderThisWeek() {
     if (!weekAnchorWednesday) weekAnchorWednesday = getThisWednesday();
+    const isCurrentWeek = weekAnchorWednesday === getThisWednesday();
 
     const [wy, wm, wd] = weekAnchorWednesday.split('-').map(Number);
     const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1214,7 +1215,7 @@
               </div>
               <button class="btn btn-secondary btn-sm bagging-email-btn no-print"
                       data-user-id="${group.user_id}" data-user-name="${escapeHtml(name)}"
-                      title='Send "your books are in" reminder email'>
+                      ${isCurrentWeek ? `title='Send "your books are in" reminder email'` : 'disabled title="Email only available for current week"'}>
                 <span style="font-size:0.9rem">&#9993;</span>&nbsp;Email
               </button>
             </div>
