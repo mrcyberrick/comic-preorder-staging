@@ -252,22 +252,55 @@ async function initNav() {
 // Shows a red badge on the This Week nav link when the active user
 // has reserved items with an on_sale_date in the next 7 days.
 // Reflects the managed customer when admin context is active.
+// ── Date Helpers ──────────────────────────────────────────
+// Canonical local-date helpers. Avoid `toISOString()` for date math —
+// in negative-UTC timezones it shifts the calendar date past ~8 PM
+// local (the F28 footgun documented in technical-reference.md § 13).
+//
+// "This Week" is canonically the Mon-Sun calendar week containing
+// today's local date. This is the single rule used by NavBubble,
+// arrivals.html, and admin.html. Wednesday is no longer special.
+const DateUtils = {
+  /** Format a Date as YYYY-MM-DD in local time. */
+  fmtLocal(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  },
+
+  /** Today's local date as YYYY-MM-DD. */
+  todayLocal() {
+    return this.fmtLocal(new Date());
+  },
+
+  /**
+   * Returns the Mon-Sun calendar week containing the reference date
+   * (default: today) as { start, end } YYYY-MM-DD strings.
+   *
+   * Example: refDate = Wed 2026-05-13
+   *          → { start: '2026-05-11', end: '2026-05-17' }
+   */
+  weekRange(refDate) {
+    const d = refDate ? new Date(refDate) : new Date();
+    const day = d.getDay();              // 0=Sun, 1=Mon, ..., 6=Sat
+    const daysSinceMon = (day + 6) % 7;  // Mon=0, Tue=1, ..., Sun=6
+    const monday = new Date(d);
+    monday.setDate(d.getDate() - daysSinceMon);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    return { start: this.fmtLocal(monday), end: this.fmtLocal(sunday) };
+  },
+};
+
 const NavBubble = {
   async load(userId) {
     try {
-      const today = new Date();
-      const in7   = new Date(today);
-      in7.setDate(today.getDate() + 7);
-
-      const todayStr = today.toISOString().split('T')[0];
-      const in7Str   = in7.toISOString().split('T')[0];
+      const { start, end } = DateUtils.weekRange();
 
       const { data, error } = await db
         .from('preorders')
         .select('id, catalog!inner(on_sale_date)')
         .eq('user_id', userId)
-        .gte('catalog.on_sale_date', todayStr)
-        .lte('catalog.on_sale_date', in7Str);
+        .gte('catalog.on_sale_date', start)
+        .lte('catalog.on_sale_date', end);
 
       if (error || !data) return;
 
