@@ -1077,32 +1077,25 @@
 
 
   // ── This Week ─────────────────────────────────────────────
-  function getThisWednesday() {
-    const today = new Date();
-    const diff  = (3 - today.getDay() + 7) % 7;
-    const wed   = new Date(today);
-    wed.setDate(today.getDate() + diff);
-    const y = wed.getFullYear();
-    const m = String(wed.getMonth() + 1).padStart(2, '0');
-    const d = String(wed.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
-  // Tab-local state: which week's Wednesday is the current anchor.
-  let weekAnchorWednesday = null;
+  // Tab-local state: ISO YYYY-MM-DD of the displayed week's Monday.
+  // Range derived as anchor → anchor + 6 days (Mon-Sun).
+  // Uses DateUtils from app.js as the single source of truth.
+  let weekAnchorMonday = null;
 
   async function renderThisWeek() {
-    if (!weekAnchorWednesday) weekAnchorWednesday = getThisWednesday();
-    const isCurrentWeek = weekAnchorWednesday === getThisWednesday();
+    const currentMon = DateUtils.weekRange().start;
+    if (!weekAnchorMonday) weekAnchorMonday = currentMon;
+    const isCurrentWeek = weekAnchorMonday === currentMon;
 
-    const [wy, wm, wd] = weekAnchorWednesday.split('-').map(Number);
-    const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const weekStart = fmtDate(new Date(wy, wm - 1, wd - 2));
-    const weekEnd   = fmtDate(new Date(wy, wm - 1, wd + 3));
+    const [my, mm, md] = weekAnchorMonday.split('-').map(Number);
+    const monday = new Date(my, mm - 1, md);
+    const sunday = new Date(my, mm - 1, md + 6);
+    const weekStart = DateUtils.fmtLocal(monday);
+    const weekEnd   = DateUtils.fmtLocal(sunday);
 
-    const monDisplay = new Date(wy, wm - 1, wd - 2).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const satDisplay = new Date(wy, wm - 1, wd + 3).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const weekDisplay = `${monDisplay} – ${satDisplay}`;
+    const monDisplay = monday.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const sunDisplay = sunday.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const weekDisplay = `${monDisplay} – ${sunDisplay}`;
 
     const headerEl  = document.getElementById('this-week-header');
     const container = document.getElementById('this-week-groups');
@@ -1263,17 +1256,17 @@
     });
   }
 
-  // Week nav handlers
+  // Week nav handlers — shift by ±7 days, "Today" resets to this Monday.
   function shiftWeek(days) {
-    const [y, m, d] = (weekAnchorWednesday || getThisWednesday()).split('-').map(Number);
+    const [y, m, d] = (weekAnchorMonday || DateUtils.weekRange().start).split('-').map(Number);
     const dt = new Date(y, m - 1, d + days);
-    weekAnchorWednesday = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    weekAnchorMonday = DateUtils.fmtLocal(dt);
     renderThisWeek();
   }
   document.getElementById('btn-week-prev').addEventListener('click', () => shiftWeek(-7));
   document.getElementById('btn-week-next').addEventListener('click', () => shiftWeek(7));
   document.getElementById('btn-week-today').addEventListener('click', () => {
-    weekAnchorWednesday = getThisWednesday();
+    weekAnchorMonday = DateUtils.weekRange().start;
     renderThisWeek();
   });
 
