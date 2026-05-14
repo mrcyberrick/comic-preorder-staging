@@ -1847,14 +1847,22 @@ production-staging URL bug unrelated to multi-tenancy (F35).
   every read.
 
 #### F28 — `toISOString()` used for date math in two places
-- **Status:** confirmed
+- **Status:** All callsites closed in phase 3.8 (2026-05-14). The two
+  date-math callsites (`NavBubble.load`, `mylist.html` past-item filter)
+  now use `DateUtils.todayLocal()` and `DateUtils.weekRange()`. The four
+  filename-label callsites (`mylist.html` export, three `admin.html`
+  export handlers) also migrated to `DateUtils.todayLocal()` while in the
+  area — same anti-pattern, milder symptom (UTC-labeled download
+  filenames). F28 stays in the findings index as documentation of the
+  anti-pattern; reviewers should flag any new `toISOString()` use in
+  date-string contexts.
 - `app.js` `NavBubble.load` (lines 262-263) and `mylist.html` past-item
-  filter (line 696) both use `new Date().toISOString().split('T')[0]`
+  filter (line 696) both used `new Date().toISOString().split('T')[0]`
   for "today". Per the documented anti-pattern: in negative-UTC-offset
   timezones (New Jersey is UTC-4/-5), `toISOString()` after 8 PM local
   returns tomorrow's date. Off-by-one for late-evening users.
-- **Fix:** replace with the local-date pattern used elsewhere
-  (`getThisWednesday()` in arrivals.html demonstrates).
+- **Fix:** replaced with `DateUtils.todayLocal()` and
+  `DateUtils.weekRange()` (new helpers in `app.js`, phase 3.8).
 
 #### F30 — `Preorders.getAll` join `auth_users:user_id ( email )` is fragile
 - **Status:** open
@@ -1966,6 +1974,34 @@ production-staging URL bug unrelated to multi-tenancy (F35).
   label associated with a form field" across the admin dashboard.
 - **Where:** `admin.html`.
 - **Fix:** as described in Status.
+
+#### F39 — `arrivals` "this week" semantic mismatch (resolved in 3.8)
+
+- **Severity:** HIGH (customer-visible)
+- **Surface:** `app.js` `NavBubble.load`, `arrivals.html`, `admin.html` This Week tab
+- **Discovered:** 2026-05-14 (post-3.7 soak)
+- **Resolved:** Phase 3.8 — `docs/phase-3.8-pre-phase-4-hardening.md`
+
+The three "this week" surfaces implemented three different rules:
+
+| Surface | Pre-3.8 rule |
+|---|---|
+| `NavBubble.load` | 7-day rolling window (today → today + 7) |
+| `arrivals.html` | Single Wednesday (`.eq` on `getThisWednesday()`) |
+| `admin.html` This Week tab | Mon-Sat anchored on next Wednesday |
+
+Customer-visible symptom: a reservation dated for next Wednesday caused the
+nav badge to show "1" while `arrivals.html` showed "Nothing reserved this
+week" — the badge counted next Wednesday's item as in-window; arrivals did
+not. The same reservation was also out-of-window for the admin bagging tab.
+
+Fix (phase 3.8): canonical rule is the Mon-Sun calendar week containing
+today's local date. Shared `DateUtils.weekRange()` helper in `app.js`. All
+three surfaces query the same `(start, end)` range. F28's callsites closed
+as a side effect (no more `toISOString()` in date-math contexts).
+
+Smoke pinned in `playwright/tests/04-arrivals-this-week.spec.ts` with
+boundary-day seeds and a badge↔arrivals consistency assertion.
 
 ---
 
