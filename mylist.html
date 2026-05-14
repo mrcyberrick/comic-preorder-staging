@@ -693,7 +693,8 @@
     }
     // Main list shows current catalog month only.
     // Upcoming Arrivals section uses allUpcoming which includes all future months.
-    const today = new Date().toISOString().split('T')[0];
+    // DateUtils.todayLocal() avoids the F28 toISOString() footgun.
+    const today = DateUtils.todayLocal();
     allItems = items.filter(i => i.catalog?.catalog_month === currentMonth);
     allUpcoming = items.filter(i => {
       const d = i.catalog?.on_sale_date;
@@ -997,7 +998,7 @@
         ReservedOn:  item.created_at?.split('T')[0],
       };
     });
-    exportToCsv(rows, `my-pull-list-${new Date().toISOString().split('T')[0]}.csv`);
+    exportToCsv(rows, `my-pull-list-${DateUtils.todayLocal()}.csv`);
   });
 
 
