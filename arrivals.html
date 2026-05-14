@@ -284,23 +284,19 @@
   try { await checkMaintenanceMode(profile?.is_admin); }
   catch(e) { if (e.message === 'maintenance') return; }
 
-  // ── Calculate this Wednesday ──────────────────────────────
-  function getThisWednesday() {
-    const today = new Date();
-    const diff  = (3 - today.getDay() + 7) % 7;
-    const wed   = new Date(today);
-    wed.setDate(today.getDate() + diff);
-    const y = wed.getFullYear();
-    const m = String(wed.getMonth() + 1).padStart(2, '0');
-    const d = String(wed.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-
-  const thisWednesday = getThisWednesday();
-  const [y, m, d] = thisWednesday.split('-').map(Number);
-  const wedDisplay = new Date(y, m - 1, d).toLocaleDateString('en-US', {
+  // ── Calculate this week's Mon-Sun range ───────────────────
+  // Uses the canonical DateUtils.weekRange() helper from app.js so the
+  // page, the nav badge, and admin bagging share one definition.
+  const { start: weekStart, end: weekEnd } = DateUtils.weekRange();
+  const [sy, sm, sd] = weekStart.split('-').map(Number);
+  const [ey, em, ed] = weekEnd.split('-').map(Number);
+  const monDisplay = new Date(sy, sm - 1, sd).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric'
+  });
+  const sunDisplay = new Date(ey, em - 1, ed).toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
   });
+  const weekDisplay = `${monDisplay} – ${sunDisplay}`;
 
   const container = document.getElementById('arrivals-container');
   const targetUserId = AdminContext.resolveUserId(user.id);
@@ -324,12 +320,17 @@
         id, title, series_name, publisher, cover_url, price_usd, distributor, variant_type
       )
     `)
-    .eq('on_sale_date', thisWednesday)
+    .gte('on_sale_date', weekStart)
+    .lte('on_sale_date', weekEnd)
+    .order('on_sale_date')
     .order('title');
 
   // ── Query 2: user's preorders for this Wednesday ──────────
   const { items: preorderItems } = await Preorders.getMy(targetUserId);
-  const myArrivals = (preorderItems || []).filter(i => i.catalog?.on_sale_date === thisWednesday);
+  const myArrivals = (preorderItems || []).filter(i => {
+    const d = i.catalog?.on_sale_date;
+    return d && d >= weekStart && d <= weekEnd;
+  });
 
   // Build a set of catalog IDs and UPCs the user has reserved
   // so we can flag them in the full shipment list
@@ -346,7 +347,7 @@
   if (!hasShipment) {
     // ── Fallback: preorder-only (no shipment imported yet) ──
     document.getElementById('page-subtitle').textContent =
-      `${myArrivals.length} reserved title${myArrivals.length !== 1 ? 's' : ''} arriving ${wedDisplay}`;
+      `${myArrivals.length} reserved title${myArrivals.length !== 1 ? 's' : ''} arriving ${weekDisplay}`;
 
     if (!myArrivals.length) {
       container.innerHTML = `
@@ -367,7 +368,7 @@
       _reserved: true,
     })));
     renderPrintTable(myArrivals);
-    setupPrintButton(wedDisplay, myArrivals);
+    setupPrintButton(weekDisplay, myArrivals);
     document.getElementById('arrivals-toolbar').style.display = 'flex';
     return;
   }
@@ -386,7 +387,7 @@
 
   // ── Hot-fix (post-3.3): include reserved preorders that don't appear in
   // this week's shipment. This happens when a user reserves an item whose
-  // catalog row exists for thisWednesday but no corresponding shipment row
+  // catalog row exists in the Mon-Sun week but no corresponding shipment row
   // was imported (e.g. test data, or when the shipment invoice excludes a
   // title that's still on order). Without this, "full shipment mode" silently
   // dropped these reservations from the page even though they show up in
@@ -413,7 +414,7 @@
 
   // Page subtitle: personal count only, with store shipment count as secondary context
   document.getElementById('page-subtitle').textContent = myRowsCombined.length
-    ? `${myRowsCombined.length} reserved title${myRowsCombined.length !== 1 ? 's' : ''} arriving ${wedDisplay}`
+    ? `${myRowsCombined.length} reserved title${myRowsCombined.length !== 1 ? 's' : ''} arriving ${weekDisplay}`
     : `Nothing reserved this week · ${shipment.length} title${shipment.length !== 1 ? 's' : ''} in store shipment`;
 
   // ── Render cards ──────────────────────────────────────────
@@ -499,7 +500,7 @@
 
   // ── Print table (reserved items only) ────────────────────
   renderPrintTable(myArrivals);
-  setupPrintButton(wedDisplay, myArrivals);
+  setupPrintButton(weekDisplay, myArrivals);
   if (myRowsCombined.length || myArrivals.length) {
     document.getElementById('arrivals-toolbar').style.display = 'flex';
   }
@@ -573,7 +574,7 @@
 
   // Log page view — real customer sessions only, includes which Wednesday was viewed
   if (!profile?.is_admin && !AdminContext.isActive()) {
-    UsageEvents.pageView(user.id, 'arrivals', { on_sale_date: thisWednesday });
+    UsageEvents.pageView(user.id, 'arrivals', { week_start: weekStart, week_end: weekEnd });
   }
 
 })();
