@@ -1,6 +1,6 @@
 # Phase 3 — Tenant Resolution
 
-**Status:** Complete 2026-05-13
+**Status:** In progress — 3.8 hardening (base 3.1–3.7 complete 2026-05-13)
 **Branch base:** `staging`
 **Started:** 2026-05-01
 **Estimated total duration:** 3–6 weekend sessions across all four sub-deploys
@@ -61,6 +61,7 @@ not exist — write them when their turn comes, not before.
 | 3.5 | Usage events purge job (90-day retention)          | `phase-3.5-usage-events-purge.md`             | Complete    | 2026-05-10  |
 | 3.6 | Admin operational tooling — Wednesday workflow     | `phase-3.6-admin-wednesday-tooling.md`        | Complete    | 2026-05-11  |
 | 3.7 | Smoke test automation (Playwright)                 | `phase-3.7-playwright-smoke-tests.md`         | Complete    | 2026-05-13  |
+| 3.8 | Pre-Phase-4 hardening: "This Week" rule alignment  | `phase-3.8-pre-phase-4-hardening.md`          | Planning    | —           |
 
 Each sub-deploy ends in a working state, smoke-testable, reversible.
 **Do not bundle multiple sub-deploys into one session.** See the
