@@ -7,8 +7,9 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 ## 🚨 Current Migration Phase
 
-**Active phase:** Phase 4 — Production Migration (queued; not yet started)
-**Phase 3 status:** Complete 2026-05-13 — see `docs/phase-3-tenant-resolution.md`
+**Active phase:** Phase 3 — Tenant Resolution (sub-deploy 3.8 in progress)
+**Phase 3 status:** In progress — 3.8 hardening (base 3.1–3.7 complete 2026-05-13)
+**Phase 4 status:** Queued; starts after 3.8 soak
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
 **Last completed sub-deploy:** 3.7 — see `docs/phase-3.7-playwright-smoke-tests.md`
 **Last completed phase:** Phase 3 — all sub-deploys 3.1–3.7 complete
@@ -301,13 +302,19 @@ ready before any write fires.
 - **My List table**: shows only current catalog month reservations
 - **Upcoming Arrivals section**: shows all future reservations across all months
 - **Admin dashboard**: stats and all tabs scoped to current catalog month
-- **This Week page**: shows reservations with `on_sale_date === thisWednesday` (any month)
+- **This Week (nav badge, arrivals page, admin bagging tab):** The
+  Mon-Sun calendar week containing today's local date. Shared helper
+  `DateUtils.weekRange()` in `app.js` is the single source of truth.
+  Wednesday is not special; do not introduce Wednesday-anchored logic.
+  Local-date-parts only — `toISOString()` for date math is an anti-
+  pattern (see F28 in `technical-reference.md` § 13).
 
-### Wednesday Calculation
+### Local Date Pattern
 Always use local date parts (not `toISOString()`) to avoid UTC timezone shift.
-The pattern is `(3 - today.getDay() + 7) % 7` for days-until-next-Wednesday,
-then format `YYYY-MM-DD` from local `getFullYear() / getMonth() / getDate()`.
-See `getThisWednesday()` in `app.js` for the canonical implementation.
+Use `DateUtils.todayLocal()` for today's date and `DateUtils.weekRange()`
+for the Mon-Sun window. Both helpers live in `app.js` and are available
+on every authenticated page. Never reintroduce `toISOString()` for date
+comparisons or date display — see F28 in `technical-reference.md` § 13.
 
 ### Past Item Auto-Hide
 Items from previous months where `on_sale_date < today` are hidden from My List.
