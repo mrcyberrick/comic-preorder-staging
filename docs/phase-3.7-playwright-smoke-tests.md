@@ -1291,3 +1291,14 @@ the script end-to-end against staging post-refactor before the Node
 test is written; 3.7a/3.7b split point in Execution Sequence sits
 after the refactor + Node test land, so the refactor is part of the
 minimum-shippable 3.7a if a split is needed.
+
+---
+
+**2026-05-15 update (post 3.8 hardening):** Spec 04 was rewritten in
+3.8 to assert Mon-Sun calendar-week semantics (boundary days +
+badge↔arrivals consistency), replacing the original Wed-only assertion
+documented in the spec table above. `test-this-week.ps1` was refactored
+in parallel and gained a `-BoundaryTest` mode that seeds the same
+boundary scenarios manually. The Playwright spec is the CI gate; the
+PowerShell helper is the manual exploration tool — they cover the
+same ground from two angles. No other 3.7 deliverables were affected.

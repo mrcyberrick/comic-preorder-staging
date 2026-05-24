@@ -7,21 +7,21 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 ## 🚨 Current Migration Phase
 
-**Active phase:** Phase 3 — Tenant Resolution (sub-deploy 3.8 in progress)
-**Phase 3 status:** In progress — 3.8 hardening (base 3.1–3.7 complete 2026-05-13)
-**Phase 4 status:** Queued; starts after 3.8 soak
+**Active phase:** Phase 4 — Production Migration (planning not yet started)
+**Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
+**Phase 4 status:** Queued; parent-plan kickoff scheduled for next session
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
-**Last completed sub-deploy:** 3.7 — see `docs/phase-3.7-playwright-smoke-tests.md`
-**Last completed phase:** Phase 3 — all sub-deploys 3.1–3.7 complete
+**Last completed sub-deploy:** 3.8 — see `docs/phase-3.8-pre-phase-4-hardening.md`
+**Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
 
 **Phase 4 scope (not yet planned in detail):**
 - Production database migration (apply Phase 1–3 schema to prod)
-- Update `import.js` (production) with all Phase 2–3.7 patches (see § Known Out-of-Scope Items)
+- Update `import.js` (production) with all Phase 2–3.8 patches (see § Known Out-of-Scope Items)
 - Hosting migration (GitHub Pages → Cloudflare Pages or Vercel) for subdomain routing
 - Per-tenant branding rendering
-- Pre-Phase-4 hardening pass: F16/F34 deep audit (see `technical-reference.md` § 13)
+- Pre-Phase-4 hardening sub-deploy: F16/F34 deep audit (`technical-reference.md` § 13), Finding E grants audit, `claim_paper_account` tenant filtering, `upsertShipment` PRH delete cross-tenant risk, F17 admin SELECT scoping
 
 Before proposing any work, read the active phase docs and confirm the proposed
 change is in scope. **If something seems related but isn't on the IN scope list
@@ -166,7 +166,7 @@ C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\
   import.js              ← production import script (with prod credentials)
   import-staging.js      ← staging import script (with staging credentials)
   test-magic-link.ps1    ← reusable PowerShell smoke-test helper for magic-link auth flow
-  test-this-week.ps1     ← reusable PowerShell helper to populate This Week test data
+  test-this-week.ps1     ← reusable PowerShell helper to populate This Week test data; `-BoundaryTest` mode seeds Mon-Sun boundary days for the 3.8 rule
   .env                   ← script credentials (never committed)
   package.json
   node_modules\
