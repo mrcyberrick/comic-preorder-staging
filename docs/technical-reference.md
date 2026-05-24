@@ -2,7 +2,7 @@
 
 **Environment:** staging Supabase project `puoaiyezsreowpwxzxhj.supabase.co`
 **Founding tenant UUID:** `72e29f67-39f7-42bc-a4d5-d6f992f9d790` (slug `raysandjudys`)
-**Last verified:** post Phase 3.5 soak, May 2026.
+**Last verified:** post Phase 3.8 soak, May 2026.
 
 This document is the canonical schema and architecture reference for the
 PULLLIST staging environment. Production diverges from staging until Phase 4
@@ -22,8 +22,8 @@ for this document.
 
 PULLLIST is a comic pre-order system for independent bookstores. The staging
 deployment serves a single founding tenant, Ray & Judy's Book Stop, with the
-schema fully shaped for multi-tenancy after Phases 1, 2, 3.1, 3.2, 3.3, and
-3.4 of the migration program. No second tenant exists yet; the multi-tenancy
+schema fully shaped for multi-tenancy after Phases 1, 2, and 3 (sub-deploys
+3.1–3.8) of the migration program. No second tenant exists yet; the multi-tenancy
 plumbing is exercised only by the founding tenant in production traffic.
 
 The application is a static GitHub Pages site (vanilla HTML/CSS/JS, no build

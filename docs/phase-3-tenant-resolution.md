@@ -1,6 +1,6 @@
 # Phase 3 — Tenant Resolution
 
-**Status:** In progress — 3.8 hardening (base 3.1–3.7 complete 2026-05-13)
+**Status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
 **Branch base:** `staging`
 **Started:** 2026-05-01
 **Estimated total duration:** 3–6 weekend sessions across all four sub-deploys
@@ -61,7 +61,7 @@ not exist — write them when their turn comes, not before.
 | 3.5 | Usage events purge job (90-day retention)          | `phase-3.5-usage-events-purge.md`             | Complete    | 2026-05-10  |
 | 3.6 | Admin operational tooling — Wednesday workflow     | `phase-3.6-admin-wednesday-tooling.md`        | Complete    | 2026-05-11  |
 | 3.7 | Smoke test automation (Playwright)                 | `phase-3.7-playwright-smoke-tests.md`         | Complete    | 2026-05-13  |
-| 3.8 | Pre-Phase-4 hardening: "This Week" rule alignment  | `phase-3.8-pre-phase-4-hardening.md`          | Planning    | —           |
+| 3.8 | Pre-Phase-4 hardening: "This Week" rule alignment  | `phase-3.8-pre-phase-4-hardening.md`          | Complete    | 2026-05-15  |
 
 Each sub-deploy ends in a working state, smoke-testable, reversible.
 **Do not bundle multiple sub-deploys into one session.** See the
@@ -295,4 +295,53 @@ Files changed:
 - `style.css` (print rules + `.visually-hidden` utility)
 - `import-staging.js` (local scripts folder; new Step 9 added by user)
 
-**Last updated:** 2026-05-11 (sub-deploy 3.6 complete)
+---
+
+**2026-05-15 — Phase 3.8 closeout: rule-alignment shipped with two runbook amendments**
+
+3.8 executed via CLI session on 2026-05-14, soaked one day, no
+badge↔arrivals discrepancy observed. Two stop-and-ask amendments
+folded into the runbook during execution, both surfaced by
+mid-execution inventory divergence (the anti-drift discipline working
+as intended):
+
+1. **C2b — `mylist.html` export filename** — During C4 (the one-line
+   `toISOString()` swap on line 696), the session noticed a second
+   `toISOString().split('T')[0]` callsite used to label the CSV
+   download filename. Same anti-pattern, milder symptom (UTC-stamped
+   filenames). User confirmed: fix it now under the same commit since
+   the area was already open. Swapped to `DateUtils.todayLocal()`.
+
+2. **C4b — `admin.html` export filenames** — Same pattern caught in
+   the three admin export handlers (preorders, users, subscribers).
+   Same resolution. User confirmed at the same prompt.
+
+Both amendments were absorbed into `technical-reference.md` § 13 F28
+rather than added as a separate finding. The 3.8 plan had named a new
+F35 entry for the semantic-mismatch finding; on execution it became
+clear F28 was the better home for the whole filename-label anti-pattern
+discussion, and adding a second F35 would collide with the existing
+`reset-password` URL-bug F35. Plan-vs-execution divergence captured in
+the 3.8 plan's § Execution Notes.
+
+`test-this-week.ps1` (local scripts folder) was refactored alongside
+to match the Mon-Sun rule and gained a `-BoundaryTest` mode that
+manually reproduces the seeds Playwright spec 04 runs automatically.
+The two now cover the same ground from different angles (manual
+exploration vs. CI gate).
+
+Files changed:
+- `app.js`, `arrivals.html`, `mylist.html`, `admin.html`, `style.css`
+  (per plan §§ C1–C5)
+- `playwright/tests/04-arrivals-this-week.spec.ts` (rewritten per C6)
+- `technical-reference.md` (F28 expanded per C7; no new F35)
+- `CLAUDE.md` ("This Week" rule + Local Date Pattern per C8;
+  § Current Migration Phase deferred to soak completion)
+- `phase-3.6-admin-wednesday-tooling.md` (one-line carry-forward per C10)
+- `test-this-week.ps1` (local scripts folder; refactored to Mon-Sun
+  + `-BoundaryTest` mode; not in repo)
+
+Verification: V1–V6 all green at execution; one-day soak passed
+without incident.
+
+**Last updated:** 2026-05-15 (Phase 3 complete — 3.1–3.7 + 3.8 hardening)
