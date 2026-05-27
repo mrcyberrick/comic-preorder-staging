@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
 
     // ── Verify caller is admin ────────────────────────────
     const profileRes = await fetch(
-      SUPABASE_URL + '/rest/v1/user_profiles?id=eq.' + userData.id + '&select=is_admin',
+      SUPABASE_URL + '/rest/v1/user_profiles?id=eq.' + userData.id + '&select=is_admin,tenant_id',
       { headers: { Authorization: authHeader, apikey: SUPABASE_ANON, Accept: 'application/json' } }
     )
     const profiles = await profileRes.json()
@@ -64,6 +64,7 @@ Deno.serve(async (req) => {
         { status: 403, headers: corsHeaders }
       )
     }
+    const callerTenantId = profiles[0].tenant_id
 
     // ── Verify the source account is actually a paper account ─
     // Prevents accidentally merging two real accounts.
@@ -117,7 +118,7 @@ Deno.serve(async (req) => {
     // On conflict (real account already has a reservation for the same catalog item),
     // skip the duplicate rather than failing — the real account's reservation wins.
     const preordersRes = await fetch(
-      SUPABASE_URL + '/rest/v1/preorders?user_id=eq.' + paper_user_id,
+      SUPABASE_URL + '/rest/v1/preorders?user_id=eq.' + paper_user_id + '&tenant_id=eq.' + callerTenantId,
       {
         method: 'PATCH',
         headers: {
@@ -141,7 +142,7 @@ Deno.serve(async (req) => {
 
     // ── Reassign subscriptions ────────────────────────────
     const subsRes = await fetch(
-      SUPABASE_URL + '/rest/v1/subscriptions?user_id=eq.' + paper_user_id,
+      SUPABASE_URL + '/rest/v1/subscriptions?user_id=eq.' + paper_user_id + '&tenant_id=eq.' + callerTenantId,
       {
         method: 'PATCH',
         headers: {
