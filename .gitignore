@@ -1,3 +1,6 @@
 
 # Claude Code per-project memory
 .claude/
+
+# Supabase CLI temp files
+supabase/.temp/
