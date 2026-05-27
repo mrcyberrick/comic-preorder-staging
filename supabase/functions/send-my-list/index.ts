@@ -71,16 +71,17 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Could not find user email' }, { status: 404, headers: corsHeaders })
     }
 
-    // Fetch user profile for name
+    // Fetch user profile for name and tenant
     const profileRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${user_id}&select=full_name&limit=1`,
+      `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${user_id}&select=full_name,tenant_id&limit=1`,
       { headers: authHeaders }
     )
     const profiles = await profileRes.json()
     const fullName = profiles?.[0]?.full_name || 'Valued Customer'
+    const callerTenantId = profiles?.[0]?.tenant_id || FOUNDING_TENANT_ID
 
-    // Get the current catalog month scoped to this tenant
-    const tenantFilter = FOUNDING_TENANT_ID ? `&tenant_id=eq.${FOUNDING_TENANT_ID}` : ''
+    // Get the current catalog month scoped to the caller's tenant
+    const tenantFilter = `&tenant_id=eq.${callerTenantId}`
     const monthRes = await fetch(
       `${SUPABASE_URL}/rest/v1/catalog?select=catalog_month&order=catalog_month.desc&limit=1` + tenantFilter,
       { headers: authHeaders }
@@ -97,9 +98,9 @@ Deno.serve(async (req) => {
     const monthLabel = new Date(my, mm - 1, 1)
       .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
-    // Fetch the user's preorders for the current catalog month
+    // Fetch the user's preorders for the current catalog month, scoped to their tenant
     const preordersRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/preorders?user_id=eq.${user_id}&select=quantity,catalog(title,series_name,publisher,distributor,price_usd,on_sale_date,item_code,catalog_month)`,
+      `${SUPABASE_URL}/rest/v1/preorders?user_id=eq.${user_id}&tenant_id=eq.${callerTenantId}&select=quantity,catalog(title,series_name,publisher,distributor,price_usd,on_sale_date,item_code,catalog_month)`,
       { headers: authHeaders }
     )
     const preorders = await preordersRes.json()
