@@ -209,6 +209,6 @@ purge_stale_catalog          | 3        | true      | null
 | 2026-05-26 | C3 SQL | DROP FUNCTION claim_paper_account(uuid, uuid) — success; 0 rows in pg_proc verify | No policy references confirmed pre-drop |
 | 2026-05-26 | C4 SQL | DROP FUNCTION is_admin() — success; 0 rows in pg_proc verify | No policy references confirmed pre-drop |
 | 2026-05-26 | C5 SQL | search_path=public set on delete_dropped_catalog_items, get_popular_series(text), purge_stale_catalog — all 3 verified via pg_proc proconfig | get_popular_series signature corrected to (text) from earlier D2 re-investigation |
-| 2026-05-26 | C9 SQL | [pending user paste] | |
+| 2026-05-26 | C9 SQL | A1: preorders admin policy recreated with `current_user_is_admin() AND tenant_id = current_tenant_id()`; A3: user_profiles SELECT policy adds `tenant_id = current_tenant_id()`; Finding E: anon revoked from all 9 tables, authenticated TRUNCATE/REFERENCES/TRIGGER revoked from all 9 tables — all verified | canary_tenants absent on staging; scope is 9 tables not 10. Production C9 must include canary_tenants if present. |
 | 2026-05-26 | C11 SQL | [pending user paste] | |
 | 2026-05-26 | C12 SQL | [pending user paste] | |
