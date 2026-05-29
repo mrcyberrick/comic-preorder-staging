@@ -9,11 +9,11 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 4 — Production Migration
 **Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
-**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26
-**Active sub-deploy:** 4.1 — Pre-cutover hardening — see `docs/phase-4.1-pre-cutover-hardening.md` (plan not yet executed)
+**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29
+**Active sub-deploy:** 4.2 — Prod schema additive — plan not yet written
 **Plan (Phase 4 parent):** `docs/phase-4-production-migration.md`
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
-**Last completed sub-deploy:** 4.0 — see `docs/phase-4.0-backfill-parity.md`
+**Last completed sub-deploy:** 4.1 — see `docs/phase-4.1-pre-cutover-hardening.md`
 **Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
@@ -23,7 +23,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 - Update `import.js` (production) with all Phase 2–3.8 patches (see § Known Out-of-Scope Items)
 - Hosting migration (GitHub Pages → Cloudflare Pages or Vercel) for subdomain routing
 - Per-tenant branding rendering
-- Pre-Phase-4 hardening sub-deploy: F16/F34 deep audit (`technical-reference.md` § 13), Finding E grants audit, `claim_paper_account` tenant filtering, `upsertShipment` PRH delete cross-tenant risk, F17 admin SELECT scoping
+- Pre-Phase-4 hardening sub-deploy: **complete (4.1, 2026-05-29)** — F16/F34 deep audit, Finding E grants tightening, `claim_paper_account` dropped, `upsertShipment` and `buildCatalogIdMap` scoped, F17 fixed, Edge Function auth gaps closed (F47/F50/F51/F54), 3-day canary soak clean
 
 Before proposing any work, read the active phase docs and confirm the proposed
 change is in scope. **If something seems related but isn't on the IN scope list
@@ -416,19 +416,6 @@ agentic sessions without explicit user approval:
   until a later phase
 
 ### Deferred — architectural concerns noted but not blocking
-- **`claim_paper_account` doesn't filter by tenant** — function reassigns
-  preorders/subscriptions from a paper user to a real user without checking
-  tenant. Currently safe because all data is in one tenant. Worth revisiting
-  before paper-customer flows run cross-tenant.
-- **Overly-broad table grants on `usage_events` and `user_profiles`
-  (Finding E, discovered during 3.4)** — `anon`, `authenticated`, and
-  `service_role` all hold the full table-level privilege set (DELETE, INSERT,
-  REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE). RLS prevents actual data
-  exposure (verified in 3.4 V1–V5), but grants are wider than necessary in a
-  defense-in-depth model. Other tenant-scoped tables (`preorders`,
-  `subscriptions`, etc.) likely share the same shape. Recommended follow-up:
-  a dedicated hardening sub-deploy (3.7+ or Phase 4 prerequisite) that audits
-  and tightens table-level grants across all tenant-scoped tables.
 
   - **import.js (production) — required patches before first prod run
   after Phase 1 schema migration:**

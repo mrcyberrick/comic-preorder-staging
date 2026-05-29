@@ -2023,10 +2023,10 @@ Surfaced during the pre-cutover audit pass (2026-05-26). See `docs/phase-4.1-aud
 - **Fix:** replace EXISTS clause with `current_user_is_admin()`.
 
 #### F47 — `notify-customers` Edge Function has no caller authentication check
-- **Status:** open — C10 blocked pending B3 JWT confirmation from Supabase dashboard.
-- Any HTTP request to the function endpoint can trigger a bulk email blast to all founding-tenant customers. Severity: MEDIUM if platform JWT verification is enabled (any authenticated user can trigger); HIGH if disabled.
-- **Where:** `notify-customers/index.ts` — no `Authorization` header check, no admin verification.
-- **Fix:** add caller auth + admin check (same pattern as `invite-customer` / `create-paper-customer`). Confirm JWT enabled on Supabase dashboard first.
+- **Status:** fixed 2026-05-27 (Phase 4.1 C10a) — in-body auth added; platform JWT flipped OFF; callerTenantId scopes both tenant filters.
+- Any HTTP request could trigger a bulk email blast to all founding-tenant customers. Severity HIGH (platform JWT was ON but in-body auth was absent; blast scoped to founding tenant regardless of caller).
+- **Where:** `notify-customers/index.ts`.
+- **Fix:** hoisted env vars to function scope; added `/auth/v1/user` JWT verify + admin profile check + callerTenantId resolution before any data operation. Both tenantFilter constructions now use callerTenantId.
 
 #### F48 — `reservation_history` and `user_profiles` user SELECT policies lack tenant scope
 - **Status:** fixed 2026-05-26 — `reservation_history` fixed in C2 (both policies); `user_profiles` fixed in C9 (user SELECT policy).
@@ -2041,22 +2041,34 @@ Surfaced during the pre-cutover audit pass (2026-05-26). See `docs/phase-4.1-aud
 - **Fix:** recreate with `security_invoker = true`; grant SELECT to `authenticated` and `service_role` only. Doc discrepancy flagged for review during 4.2 pre-flight.
 
 #### F50 — `claim-paper-customer` PATCH operations not scoped by tenant
-- **Status:** open — C10 blocked pending B3 JWT confirmation.
-- PATCH to `preorders` and `subscriptions` filters by `user_id=eq.${paper_user_id}` only. Service-role key bypasses RLS. A canary-tenant admin could (in a two-tenant context) merge a founding-tenant paper account into a real account.
-- **Where:** `claim-paper-customer/index.ts` lines ~119–155 (two PATCH URLs).
-- **Fix:** add `&tenant_id=eq.${callerTenantId}` to both PATCH URLs; resolve `callerTenantId` from caller's profile (same pattern as `create-paper-customer`).
+- **Status:** fixed 2026-05-27 (Phase 4.1 C10b) — both PATCH URLs now include `&tenant_id=eq.${callerTenantId}`.
+- PATCH to `preorders` and `subscriptions` filtered by `user_id` only. Service-role key bypasses RLS. A canary-tenant admin could merge a founding-tenant paper account cross-tenant.
+- **Where:** `claim-paper-customer/index.ts`.
+- **Fix:** added `tenant_id` to admin profile select; extracted callerTenantId; appended `&tenant_id=eq.${callerTenantId}` to both PATCH URLs.
 
 #### F51 — `send-my-list` catalog month query uses hardcoded `FOUNDING_TENANT_ID`
-- **Status:** open — C10 blocked.
-- Catalog month and preorders queries both hard-pin to founding tenant. A canary-tenant user requesting their pull list email would receive the founding-tenant catalog month in the subject line and founding-tenant preorders in the body.
-- **Where:** `send-my-list/index.ts` — `FOUNDING_TENANT_ID` used for catalog and preorder queries.
-- **Fix:** resolve `callerTenantId` from caller's profile; use for both queries.
+- **Status:** fixed 2026-05-27 (Phase 4.1 C10c) — catalog and preorders queries now use callerTenantId resolved from user profile.
+- Catalog month and preorders queries both hard-pinned to founding tenant. Canary-tenant user would receive founding-tenant content.
+- **Where:** `send-my-list/index.ts`.
+- **Fix:** added `tenant_id` to profile select; callerTenantId extracted with FOUNDING_TENANT_ID fallback; both queries scoped by callerTenantId.
 
 #### F52 — 5 of 8 Edge Functions not committed to the repo
-- **Status:** deferred to sub-deploy 4.6.
-- `approve-customer`, `claim-paper-customer`, `notify-customers`, `reset-password`, and `send-my-list` exist only in Supabase staging deployment (downloadable via CLI). The 4.6 plan requires a tagged-commit redeploy of all 8 EFs before cutover — not currently executable for these 5.
-- **Where:** repo `supabase/functions/` — only 3 of 8 functions present.
-- **Fix:** commit all 8 EF sources to repo as a prerequisite task in sub-deploy 4.6. Note: `approve-customer` staging source differs from the stale `Downloads/prod` copy — use staging CLI download as canonical.
+- **Status:** resolved 2026-05-27 (Phase 4.1 Session 2) — all 5 EF sources committed to repo. All 8 EFs now tracked.
+- `approve-customer`, `claim-paper-customer`, `notify-customers`, `reset-password`, and `send-my-list` existed only in Supabase staging deployment. 4.6 tagged-commit redeploy prerequisite now met.
+- **Where:** repo `supabase/functions/`.
+- **Fix:** committed all 5 missing EF sources in Session 2 opening commit. Deploy workflow documented: patch in repo → copy to `C:\Users\richa\supabase\functions\` → deploy from CLI project root.
+
+#### F53 — `create-paper-customer` JWT verification ON despite having in-body auth
+- **Status:** fixed 2026-05-27 (Phase 4.1 C13) — JWT verification flipped OFF via Supabase dashboard. In-body auth (lines 42–68) is the sole gate.
+- Redundant platform JWT + in-body auth; JWT ON means the platform intercepts before in-body check runs, making the check unreachable for unauthenticated requests.
+- **Where:** Supabase dashboard → Edge Functions → `create-paper-customer` → JWT verification toggle.
+- **Fix:** dashboard toggle only; no source changes.
+
+#### F54 — `send-my-list` authorization gap: any authenticated user can request any user's list
+- **Status:** fixed 2026-05-27 (Phase 4.1, separate commit before C10c) — `/auth/v1/user` call added with caller's JWT; `callerUser.id !== user_id` returns 403.
+- Auth check verified session token present but used service key to look up user_id — did not verify the caller IS that user. Any logged-in user could trigger a pull-list email to any other user's address.
+- **Where:** `send-my-list/index.ts`.
+- **Fix:** added `SUPABASE_ANON_KEY` env var; call `/auth/v1/user` with caller's JWT; assert `callerUser.id === user_id` before proceeding.
 
 ---
 
