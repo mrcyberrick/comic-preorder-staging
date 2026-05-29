@@ -7,6 +7,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 ## 🚨 Current Migration Phase
 
+<<<<<<< Updated upstream
 **Active phase:** Phase 4 — Production Migration
 **Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
 **Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29
@@ -14,16 +15,31 @@ comic pre-order system. **Read this file in full at the start of every session.*
 **Plan (Phase 4 parent):** `docs/phase-4-production-migration.md`
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
 **Last completed sub-deploy:** 4.1 — see `docs/phase-4.1-pre-cutover-hardening.md`
+=======
+**Active phase:** Phase 4 — Production Migration (in progress)
+**Active sub-deploy:** 4.1 — pre-cutover hardening (Session 3 pending; canary live, soak day 3 due)
+**Phase 4 parent plan:** `docs/phase-4-production-migration.md`
+**Active sub-deploy plan:** `docs/phase-4.1-pre-cutover-hardening.md`
+**Active audit log:** `docs/phase-4.1-audit-findings.md`
+**Active soak log:** `docs/phase-4.1-soak-log.md`
+**Last completed sub-deploy:** 4.0 — see `docs/phase-4.0-backfill-parity.md`
+>>>>>>> Stashed changes
 **Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
-**Phase 1 reference:** `docs/phase-1-schema-migration.md` and `docs/pre-multitenancy-state.md`
+**Phase 1 reference:** `docs/phase-1-schema-migration.md`, `docs/pre-multitenancy-state.md` (§ 2/§ 4 superseded by `docs/production-baseline-2026-05-28.md`)
 
+<<<<<<< Updated upstream
 **Phase 4 scope (in progress — see `docs/phase-4-production-migration.md` for sub-deploy index):**
 - Production database migration (apply Phase 1–3 schema to prod)
 - Update `import.js` (production) with all Phase 2–3.8 patches (see § Known Out-of-Scope Items)
 - Hosting migration (GitHub Pages → Cloudflare Pages or Vercel) for subdomain routing
 - Per-tenant branding rendering
 - Pre-Phase-4 hardening sub-deploy: **complete (4.1, 2026-05-29)** — F16/F34 deep audit, Finding E grants tightening, `claim_paper_account` dropped, `upsertShipment` and `buildCatalogIdMap` scoped, F17 fixed, Edge Function auth gaps closed (F47/F50/F51/F54), 3-day canary soak clean
+=======
+**Phase 4 next milestones:** finish 4.1 (soak day 3 + Session 3 teardown/close) → 4.2 planning (rewritten against live baseline) → cutover weekend window (4.2–4.6) → 4.7 soak.
+
+**Phase 5 (queued, not started):** Second-tenant onboarding — hosting migration, branding rendering, slug→id routing, self-service signup.
+>>>>>>> Stashed changes
 
 Before proposing any work, read the active phase docs and confirm the proposed
 change is in scope. **If something seems related but isn't on the IN scope list
@@ -34,103 +50,218 @@ in the active sub-deploy plan, stop and ask** rather than fixing it inline.
 ## 🚨 CRITICAL RULES — READ FIRST
 
 ### Staging Only
-**All code changes, file generation, and deployment guidance target staging ONLY.**
-- Never suggest pushing directly to `origin main`
+**All code changes, file generation, and deployment guidance target staging ONLY,**
+except inside an explicitly-named Phase 4 cutover-window sub-deploy.
+- Never suggest pushing directly to `origin main` outside a cutover sub-deploy
 - Never open PRs to production unless the user explicitly requests a production
   promotion AND confirms staging tests have passed
 - Every session assumes work starts on the `staging` branch
 - Always remind the user to smoke test on staging before promoting to production
 
 ### Credential Safety
-**`config.js` must NEVER be committed to any branch.**
-- It is listed in `.gitignore` and must stay there
-- When merging staging → main, always run `git checkout main -- config.js`
-  to restore production credentials before committing
-- Never generate or suggest credential values in chat
-- The import script credentials live only in the local scripts folder, never in the repo
+**`config.js` is tracked per-branch with different values on each branch.**
+This is intentional: production `main` holds the prod anon key; `staging` holds
+the staging anon key. The deployment workflow uses `git checkout main -- config.js`
+during a staging→main merge to preserve the prod-branch values.
 
-**`config.js` is per-environment, not per-feature.** If a feature requires
-a new key in `config.js`, that key must be added to BOTH staging and prod
-`config.js` files manually before the merge. The `git checkout main -- config.js`
-step preserves prod's existing values; it does not propagate new keys.
+- The Supabase anon key is **public by design** and safe in committed client code.
+  RLS is the security boundary, not key secrecy. Do not treat a committed anon
+  key as a credential leak or propose `git rm --cached` on it.
+- The agent never edits `config.js` and never proposes credential values.
+- Service-role keys are different — they bypass RLS and **must** stay local-only,
+  in the scripts folder, never in any repo.
+- If a feature needs a new key in `config.js`, add it manually to both branches
+  before any merge. The `git checkout` step preserves existing prod values; it
+  does not propagate new keys.
+
+### Document Integrity (the rule that prevents the most rediscovery)
+**Planning artifacts (sub-deploy plans, runbooks, baseline docs) are committed
+to the repo immediately on creation, before the next session begins.**
+Uncommitted planning files in the working tree are a known drift source — they
+get overwritten, reverted, or accidentally clobbered between sessions. Treat any
+uncommitted planning doc as not-yet-real until it lands in git.
+
+- Doc-only commits go to `staging` directly, never bundled into a feature branch
+  for sub-deploy work
+- Reference docs that describe live state (schema baselines, function inventories,
+  finding statuses) include a "last verified against live: DATE" line. If that
+  date is stale or absent, **re-audit against live before relying on the doc** —
+  for production-touching work especially, the live database is authoritative,
+  the doc is a snapshot
+- Contradictions discovered in this file or any reference doc are surfaced as
+  findings, not worked around silently
 
 ### File Drift Prevention
-**Always work from the actual current files, not from memory or earlier sessions.**
+**Always work from actual current files, not from memory or earlier sessions.**
 - In chat sessions: ask the user to upload any files that will be modified
-- In agentic sessions (CLI Claude, Claude in VS Code): re-read files from disk at session start
+- In agentic sessions: re-read files from disk at session start; `Select-String`
+  or `view` the target range before any `str_replace`; halt if `old_str` does not
+  match byte-exactly
 - Never assume outputs from a previous session match what's currently in the repo
-- After generating updated files, remind the user to copy them to the repo before committing
-- If a file hasn't been read this session, say so rather than guessing its contents
+- After generating updated files, remind the user to copy them to the repo before
+  committing — and to verify any live status cells haven't been advanced by a
+  CLI session since the chat output was generated
+
+### Definition of Done — Merge Gate
+A sub-deploy is mergeable to `staging` **only when all of these are true**:
+- Its plan's Completion Criteria checkboxes are all ticked
+- Any soak period is fully elapsed (a 3-day soak means three calendar days, not
+  "checks green so far at day 2")
+- Verification gates (V1, V2, … V*N*) are all green
+- Any canary tenant or test fixture is torn down (verify with a live SELECT
+  returning zero rows — not "we ran the teardown SQL")
+- The parent-plan status cell is updated to **Complete** with the date
+- `CLAUDE.md` § Current Migration Phase active-sub-deploy pointer is advanced
+
+**"Most of the work looks done" is not done.** Never merge a sub-deploy whose
+plan still has unchecked completion boxes. Merges to `staging` use `--ff-only`
+(clean linear history; no merge commits).
+
+---
+
+## 🚨 Environment Facts (stated once, never rediscovered)
+
+### Shell
+- **PowerShell on Windows.** Not bash.
+- Use `Select-String` (not `grep`), `Measure-Object` (not `wc`),
+  `Get-Content | Select-Object -Skip N -First M` (not `sed`)
+- Quote paths containing parentheses: `cd "C:\Users\richa\OneDrive\Documents\(Work)\BookStop\..."`
+- PowerShell does not support `&&` — run git commands on separate lines
+
+### What's tracked vs local-only
+
+| File / location | Tracked? | How edits happen | How edits verify |
+|---|---|---|---|
+| `app.js`, `*.html`, `style.css`, `config.js`, `docs/**`, `supabase/functions/**`, `CLAUDE.md`, `README.md` | Tracked per branch | `str_replace` + commit | `git diff` + smoke test |
+| `import.js`, `import-staging.js` | **Local-only** (`scripts/` folder, not any repo) | `str_replace` against absolute path | `Select-String` + script run |
+| `test-magic-link.ps1`, `test-this-week.ps1`, playwright suite, `.env`, canary scratch files, `phase-4-prod-tenant-uuid.txt` | Local-only | Direct edit | Run-test |
+
+The local-only scripts contain service-role keys. They are never committed and
+not edited by `git add`. Verification of changes uses `Select-String` and a
+successful script run — never a git diff (the file isn't in any repo).
+
+### Supabase platform facts
+- **Anon key is public by design.** RLS is the security boundary. A committed
+  anon key in `config.js` is not a finding.
+- **Service-role key bypasses RLS.** Lives only in local scripts; never in
+  client code or any committed file.
+- **Edge Functions follow off-plus-in-body-auth.** JWT verification disabled at
+  the platform level is the recommended pattern; in-body `Authorization` header
+  verification (`/auth/v1/user` → profile lookup) is the actual gate. JWT-off is
+  not a misconfiguration. The exception is `register-customer` and any other
+  intentionally-public endpoint.
+- **Supabase SQL Editor runs as `postgres` superuser** — it bypasses RLS. To
+  test RLS isolation, simulate an authenticated user with `SET LOCAL role
+  authenticated` and `SET LOCAL "request.jwt.claims"` inside a transaction.
+
+### Database project URLs
+| Environment | URL | Project ref |
+|---|---|---|
+| Production | `https://plgegklqtdjxeglvyjte.supabase.co` | `plgegklqtdjxeglvyjte` |
+| Staging | `https://puoaiyezsreowpwxzxhj.supabase.co` | `puoaiyezsreowpwxzxhj` |
+
+**Founding tenant UUID (staging):** `72e29f67-39f7-42bc-a4d5-d6f992f9d790`
+**Production founding tenant UUID:** generated during 4.2; lives in scratch file
+`scripts/phase-4-prod-tenant-uuid.txt` (gitignored).
 
 ---
 
 ## 🚨 Anti-Drift Rules for Agentic Sessions
 
-These rules apply to any agentic session (CLI Claude, Claude in VS Code, etc.).
-They exist because Phase 2 drifted: a session scoped to "make Edge Functions
-tenant-aware" ended up also rewriting URL handling and dropping a shared email
-template. Both fixes were correct, but bundling them buried scope creep in the
-session history. These rules prevent that.
+These rules apply to any agentic session (Claude Code CLI, Claude in VS Code, etc.).
 
 ### One sub-deploy per session
-A session targets exactly one sub-deploy from the active phase plan.
-Do not bundle changes from multiple sub-deploys into one session, even
-if they look related.
+A session targets exactly one sub-deploy from the active phase plan. Do not bundle
+changes from multiple sub-deploys, even if they look related.
 
 ### Stop and ask, don't fix inline
-If you discover a real bug that is out of scope for the active sub-deploy:
+If you discover a real bug out of scope for the active sub-deploy:
 1. Stop work
-2. Describe the bug to the user
+2. Describe the bug
 3. Ask whether to (a) fix it now as a separate commit, (b) file it for later, or (c) ignore it
 4. Wait for explicit answer before proceeding
 
-This applies even when the bug is blocking your testing. The user
-decides whether to expand scope, not the agent.
+This applies even when the bug blocks your testing. The user decides scope expansion,
+not the agent.
 
-### End every session with a status update
-Before the session closes, the agent must produce:
-- What was changed (files and line ranges, or SQL run)
+### Verify before escalating
+Distinguish "I observe X" from "X is a problem requiring remediation."
+- For platform-behavior or security claims, verify against the live system or
+  official docs before proposing action
+- For findings filed in `technical-reference.md` § 13, use the next-available
+  finding ID — never guess or reuse. Check the highest existing ID first
+- A surprising query result triggers re-verification, not immediate remediation
+
+### Runbook construction standards
+- `old_str`/`new_str` blocks must match the actual file content byte-exactly.
+  Verify the target range via `view` or `Select-String` before applying
+- Verification grep counts are derived by counting occurrences in the `new_str`
+  literally, never estimated from memory
+- Each finding fix is a separate commit with the finding ID(s) in the message
+- A failed pre-check or verification is a halt-and-report, never an improvise
+
+### Status update — end every session
+Before the session closes, produce:
+- What was changed (files + line ranges, or SQL run)
 - What was verified (queries run, smoke tests passed)
 - What is left for the next session
 - Any out-of-scope discoveries that were filed rather than fixed
+- New finding IDs assigned, if any
 
 ### Never assume previous-session state matches current state
-At session start, re-read the relevant files from disk. Do not infer
-file contents from earlier sessions, from this `CLAUDE.md`, or from
-the technical reference. Those documents drift; the files are truth.
+At session start, re-read the relevant files from disk. Do not infer file contents
+from earlier sessions, from this `CLAUDE.md`, or from any reference doc.
+
+---
+
+## Response Discipline (chat sessions)
+
+These guide the planning-side agent (chat), not the CLI runbook execution.
+
+- Lead with the decision or action. Rationale follows and is bounded. Full detail
+  belongs in artifacts (plans, runbooks) and explicit requests, not every turn
+- Edit documents in place with targeted changes. Never regenerate a full document
+  to alter a few lines; surface changed sections plus a one-line summary of what
+  changed
+- Offer one recommended next step, not a menu of options, unless the user asks
+  to choose
+- Do not restate settled context or re-litigate settled decisions; point to where
+  a decision was logged instead
+- Only runbooks instruct the CLI. Chat content is for planning and exploration;
+  chat speculation is never a directive. When uncertain, say so and give a
+  verification step rather than a confident wrong direction
 
 ---
 
 ## Session Opening Protocol
 
-At the start of every session Claude must:
-
-1. Read this file (`CLAUDE.md`) in full
-2. Read the active phase plan referenced at the top of this file
+At the start of every session:
+1. Read this file in full
+2. Read the active phase plan referenced in § Current Migration Phase
 3. Read the active sub-deploy plan
 4. State which sub-deploy is being executed and confirm with the user
-5. List any files that will be modified and read them from disk before proposing changes
+5. List files that will be modified and read them from disk before proposing changes
 6. Confirm staging target
 
-If any of steps 2–5 cannot be completed (file missing, plan not yet
-written, ambiguous scope), stop and ask the user before proceeding.
+If any step 2–5 cannot be completed (file missing, plan not yet written, ambiguous
+scope), stop and ask before proceeding.
 
-At the end of each session Claude should:
+At the end of each session:
 - Remind the user to copy output files to the repo
 - Remind the user to push to staging and smoke test before promoting to production
-- Note any production database changes needed (SQL to run in prod Supabase)
+- Note any production database changes needed
 - Note any local script updates needed (`import.js`)
-- Produce the status update described in the anti-drift rules
+- Produce the status update described in Anti-Drift Rules
 
 ---
 
 ## Project Overview
 
-**App**: PULLLIST — comic pre-order system for Ray & Judy's Book Stop
-**Phone**: 973-586-9182
-**Location**: Rockaway, NJ
-**Production URL**: https://mrcyberrick.us/comic-preorder/
-**Staging URL**: https://mrcyberrick.github.io/comic-preorder-staging/
+**App:** PULLLIST — comic pre-order system for Ray & Judy's Book Stop
+**Phone:** 973-586-9182
+**Location:** Rockaway, NJ
+**Production URL:** https://mrcyberrick.us/comic-preorder/
+**Staging URL:** https://mrcyberrick.github.io/comic-preorder-staging/
 
 ---
 
@@ -138,77 +269,63 @@ At the end of each session Claude should:
 
 ```
 comic-preorder/                    ← production repo (github.com/mrcyberrick/comic-preorder)
-  catalog.html                     ← monthly catalog browse & reserve
-  mylist.html                      ← customer pull list
-  arrivals.html                    ← this week's arrivals
-  subscriptions.html               ← series subscription management
-  admin.html                       ← admin dashboard
-  app.js                           ← shared application logic & Supabase API
-  style.css                        ← all styles
-  config.js                        ← credentials (NEVER COMMIT — gitignored)
+  catalog.html
+  mylist.html
+  arrivals.html
+  subscriptions.html
+  admin.html
+  app.js
+  style.css
+  config.js                        ← tracked per branch; never edited by agent
   CLAUDE.md                        ← this file
-  README.md                        ← project overview
+  README.md
+  supabase/functions/              ← all 8 Edge Functions (post-4.1 Session 1)
   docs/
-    monthly-catalog-refresh.md     ← monthly import SOP
-    technical-reference.md         ← canonical schema and architecture reference
-    pre-multitenancy-state.md      ← Phase 1 baseline + completion notes
-    phase-1-schema-migration.md    ← Phase 1 plan and completion record
-    phase-2-completion.md          ← Phase 2 completion notes
-    phase-3-tenant-resolution.md   ← Phase 3 parent plan and sub-deploy index
-    phase-3.x-*.md                 ← per-sub-deploy plans (written as each one starts)
+    technical-reference.md         ← canonical schema + findings index § 13
+    pre-multitenancy-state.md      ← § 1, § 3, § 5 still valid; § 2/§ 4 superseded
+    production-baseline-2026-05-28.md  ← live audit; supersedes stale snapshot
+    phase-*.md                     ← phase parent plans + sub-deploy plans
 ```
 
 **Git remotes:**
 - `origin` → production repo (`github.com/mrcyberrick/comic-preorder`)
 - `staging` → staging repo (`github.com/mrcyberrick/comic-preorder-staging`)
 
-**Local scripts folder** (outside repo, never committed):
+**Local scripts folder** (outside any repo, never committed):
 ```
 C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\
-  import.js              ← production import script (with prod credentials)
-  import-staging.js      ← staging import script (with staging credentials)
-  test-magic-link.ps1    ← reusable PowerShell smoke-test helper for magic-link auth flow
-  test-this-week.ps1     ← reusable PowerShell helper to populate This Week test data; `-BoundaryTest` mode seeds Mon-Sun boundary days for the 3.8 rule
-  .env                   ← script credentials (never committed)
+  import.js                       ← production import script
+  import-staging.js               ← staging import script
+  test-magic-link.ps1
+  test-this-week.ps1
+  phase-4-prod-tenant-uuid.txt    ← generated at 4.2 pre-flight
+  phase-4.1-canary-uuids.txt      ← canary tenant identifiers (Session 2)
+  phase-4.1-canary-teardown.sql   ← FK-ordered teardown for Session 3
+  .env                            ← script credentials
   package.json
-  node_modules\
+  playwright/                     ← local smoke suite
 ```
 
-**Catalog CSV files** (outside repo):
+**Catalog CSV files:**
 ```
 C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\
   Lunar_Product_Data_MMYY.csv
   YYYY_MM_PRH_metadata_full_active.csv
-  normalized_catalog.json          ← generated by import script
+  normalized_catalog.json
 ```
 
 ---
 
 ## Tech Stack
 
-- **Frontend**: Vanilla HTML/CSS/JS — no build step, no npm for the web app
-- **Backend**: Supabase (PostgreSQL + Auth + Edge Functions + RLS)
-- **Hosting**: GitHub Pages (static files only)
-- **Email**: MailerSend via Supabase Edge Functions
-- **Import**: Node.js script run locally each month
+- **Frontend:** Vanilla HTML/CSS/JS — no build step, no npm for the web app
+- **Backend:** Supabase (PostgreSQL + Auth + Edge Functions + RLS)
+- **Hosting:** GitHub Pages (static files only)
+- **Email:** MailerSend via Supabase Edge Functions
+- **Import:** Node.js script run locally each month
 
-**Key constraint**: GitHub Pages serves static files only. There is no server-side
-rendering. All dynamic behavior is client-side JS calling Supabase directly.
-
----
-
-## Supabase Projects
-
-| Environment | URL | Anon Key Source |
-|---|---|---|
-| Production | `https://plgegklqtdjxeglvyjte.supabase.co` | `config.js` in prod |
-| Staging | `https://puoaiyezsreowpwxzxhj.supabase.co` | `config.js` in staging |
-
-**Never hardcode credentials in any file that gets committed.**
-Service role keys for the import script live only in the local scripts folder.
-
-**Founding tenant UUID (staging):** `72e29f67-39f7-42bc-a4d5-d6f992f9d790`
-This is also set as the `FOUNDING_TENANT_ID` Edge Function secret on staging.
+GitHub Pages serves static files only — no SSR. All dynamic behavior is client-side
+JS calling Supabase directly.
 
 ---
 
@@ -224,25 +341,25 @@ git checkout -b feature/<description>
 git add <files>
 git commit -m "<type>: <description>"
 
-# Merge to staging and deploy to staging site
+# Merge to staging (fast-forward only — clean linear history)
 git checkout staging
-git merge feature/<description>
+git pull origin staging
+git merge --ff-only feature/<description>
+
+# Run smoke tests before deploying
+cd C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\playwright
+.\run-smoke.ps1
+# Stop if anything fails — do not push
+
 git push origin staging
-
-# Run smoke tests before deploying to staging
-# cd C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\playwright
-# .\run-smoke.ps1
-# Stop if anything fails — do not push.
-
 git push staging staging:main    # deploys to staging GitHub Pages
 
 # Test at: mrcyberrick.github.io/comic-preorder-staging/
 # When staging tests pass, promote to production:
-
 git checkout main
 git pull origin main
 git merge staging --no-commit --no-ff
-git checkout main -- config.js   # CRITICAL: restore prod credentials
+git checkout main -- config.js   # preserve prod credentials (config.js is tracked per-branch)
 git commit -m "<type>: <description>"
 git checkout -b feat/<description>-prod
 git push origin feat/<description>-prod
@@ -250,88 +367,82 @@ git push origin feat/<description>-prod
 # Verify config.js is NOT in the diff before merging
 ```
 
-**PowerShell note**: Use separate lines instead of `&&` — PowerShell doesn't support it.
-
 ---
 
 ## Database Schema
 
-The full current schema lives in `docs/technical-reference.md`. That file is
-the canonical source of truth — read it before making any schema-related claim.
+The full current schema lives in `docs/technical-reference.md` — canonical source
+of truth. Read it before making any schema-related claim.
 
-**Do not infer schema details from this `CLAUDE.md` or from earlier sessions.**
-The schema changed materially in Phase 1 (multi-tenancy) and continues to
-evolve. A summary here would drift out of date and mislead.
+**Do not infer schema details from this file or from earlier sessions.** The
+schema changed materially in Phase 1 (multi-tenancy) and continues to evolve.
 
 Quick orientation only:
 - Multi-tenant via `tenants` table; every tenant-scoped table has `tenant_id`
+  (staging post-Phase-1; production after 4.2 lands)
 - RLS enforces tenant isolation via `current_tenant_id()` + `current_user_is_admin()`
-- Import script uses **service role key** (bypasses RLS); web app uses anon key
-- Founding tenant UUID is documented above under "Supabase Projects"
+- Import script uses service-role key (bypasses RLS); web app uses anon key
+- Founding tenant UUIDs documented in § Environment Facts above
 
-**As of Phase 3.3:** `tenant_id` column defaults are removed from all tenant-
-scoped tables. Every INSERT must pass `tenant_id` explicitly — there is no
-database-side fallback. The only exception is the defensive try/catch in
-`UsageEvents._log()` which falls back to `FOUNDING_TENANT.id` if
+**Post-Phase-3.3 (staging):** `tenant_id` column defaults removed. Every INSERT
+must pass `tenant_id` explicitly. The only exception is the defensive try/catch
+in `UsageEvents._log()` which falls back to `FOUNDING_TENANT.id` if
 `TenantContext.current()` is called before `resolve()` completes.
 
 ---
 
 ## app.js Structure
 
-Source of truth: read `app.js` directly. The major API objects exposed on
-`window` are `Auth`, `Catalog`, `Preorders`, `Subscriptions`, `Settings`,
-`AdminContext`, `NavBubble`, `TenantContext`, and `Maintenance`. Read the
-file before making claims about specific method signatures or behavior —
-this `CLAUDE.md` intentionally does not duplicate the API surface to avoid
-drift.
+Source of truth: read `app.js` directly. Major API objects on `window`:
+`Auth`, `Catalog`, `Preorders`, `Subscriptions`, `Settings`, `AdminContext`,
+`NavBubble`, `TenantContext`, `Maintenance`. Read the file before making claims
+about specific method signatures — this file deliberately does not duplicate
+the API surface to avoid drift.
 
-**As of Phase 3.1:** `TenantContext` resolves the active tenant on page load
-from (1) authenticated user's profile, (2) `?t=<slug>` query param, or
-(3) founding tenant fallback. `initNav()` calls `TenantContext.resolve()`
-before any other init code, so authenticated pages have tenant context
-ready before any write fires.
+**Post-Phase-3.1:** `TenantContext` resolves the active tenant on page load.
+`initNav()` calls `TenantContext.resolve()` before any other init.
 
-**As of Phase 3.2:** All `app.js` writes pass `tenant_id` explicitly using
-`TenantContext.current().id`. Affected call sites: `Preorders.reserve()`,
-`Subscriptions.subscribe()`, `Settings.set()`, and `UsageEvents._log()`.
+**Post-Phase-3.2:** All `app.js` writes pass `tenant_id` explicitly using
+`TenantContext.current().id`.
+
+**Maintenance mode:** `Settings.isMaintenanceMode()` reads `app_settings.maintenance_mode`
+on every authenticated page load. When true, `checkMaintenanceMode()` replaces
+`document.body` with a holding-page banner and throws to halt page init for
+non-admins. Write-blocking by construction. Admins always get through.
 
 ---
 
 ## Key Business Logic
 
 ### Catalog Month Scoping
-- **My List table**: shows only current catalog month reservations
-- **Upcoming Arrivals section**: shows all future reservations across all months
-- **Admin dashboard**: stats and all tabs scoped to current catalog month
-- **This Week (nav badge, arrivals page, admin bagging tab):** The
-  Mon-Sun calendar week containing today's local date. Shared helper
-  `DateUtils.weekRange()` in `app.js` is the single source of truth.
-  Wednesday is not special; do not introduce Wednesday-anchored logic.
-  Local-date-parts only — `toISOString()` for date math is an anti-
-  pattern (see F28 in `technical-reference.md` § 13).
+- **My List table:** current catalog month reservations only
+- **Upcoming Arrivals section:** all future reservations across all months
+- **Admin dashboard:** stats + tabs scoped to current catalog month
+- **This Week** (nav badge, arrivals page, admin bagging tab): Mon-Sun calendar
+  week containing today's local date. Shared helper `DateUtils.weekRange()` in
+  `app.js` is the single source of truth. Wednesday is not special; do not
+  introduce Wednesday-anchored logic.
 
 ### Local Date Pattern
 Always use local date parts (not `toISOString()`) to avoid UTC timezone shift.
-Use `DateUtils.todayLocal()` for today's date and `DateUtils.weekRange()`
-for the Mon-Sun window. Both helpers live in `app.js` and are available
-on every authenticated page. Never reintroduce `toISOString()` for date
-comparisons or date display — see F28 in `technical-reference.md` § 13.
+Use `DateUtils.todayLocal()` for today's date and `DateUtils.weekRange()` for
+the Mon-Sun window. Never reintroduce `toISOString()` for date comparisons or
+date display — see F28 in `technical-reference.md` § 13.
 
 ### Past Item Auto-Hide
-Items from previous months where `on_sale_date < today` are hidden from My List.
-This is enforced client-side in `mylist.html` after fetching all preorders.
+Items from previous months where `on_sale_date < today` are hidden from My List
+(client-side filter in `mylist.html`).
 
 ### Series Subscriptions
-- Subscribe button appears only on standard covers (`variant_type` is null,
+- Subscribe button appears only on standard covers (`variant_type` null,
   `'Standard'`, or `'Primary Title'`)
-- Subscribe button is hidden in admin impersonation context
+- Hidden in admin impersonation context
 - Import script auto-reserves standard covers for subscribers each month
 
 ### Variant Type Handling
-- Lunar standard cover: `variant_type = 'Standard'` or `null`
-- PRH standard cover: `variant_type = 'Primary Title'` or `null`
-- All others are variant covers — no subscribe button shown
+- Lunar standard: `variant_type = 'Standard'` or null
+- PRH standard: `variant_type = 'Primary Title'` or null
+- All others are variants — no subscribe button
 
 ---
 
@@ -340,187 +451,139 @@ This is enforced client-side in `mylist.html` after fetching all preorders.
 The import script (`import.js` / `import-staging.js`) runs locally each month:
 
 1. Reads Lunar + PRH CSV files
-2. Normalizes records to a common schema (post-Phase-1 includes `tenant_id`)
-3. Detects new vs same catalog month
-4. On new month only: archives reservation history, purges stale unreserved rows
+2. Normalizes records (post-Phase-1 includes `tenant_id`)
+3. Detects new vs same vs older catalog month (post-4.0 staging)
+4. On new month: archives reservation history, purges stale unreserved rows
 5. **Upserts** catalog records (preserving UUIDs — critical for preorder integrity)
-6. On new month only: removes items dropped from distributor catalog since last import
-7. Auto-reserves standard covers for subscribers
+6. On new month: removes items dropped from distributor catalog since last import
+7. Auto-reserves standard covers for subscribers (skipped on older-month backfills
+   or with `--skip-autoreserve`)
 8. Optionally imports weekly shipment invoices into `weekly_shipment`
 9. Prompts to send customer notification emails
 
-**Post-Phase-1**: the staging script passes `tenant_id` everywhere — in the
-upsert key, in normalized records, in auto-reserve inserts, and as
-`p_tenant_id` to the three RPC calls (`purge_stale_catalog`,
-`delete_dropped_catalog_items`, `archive_stale_reservations`).
+**Staging post-Phase-2:** passes `tenant_id` everywhere (upsert key, normalized
+records, auto-reserve inserts, `p_tenant_id` to all RPC calls).
 
 **Production `import.js` is not yet patched.** Do not run it until production
 gets the Phase 1 schema migration, or it will fail with "function does not exist."
+Patches land in sub-deploy 4.5.
 
-Re-running the staging script on the same month is safe — upsert updates in
-place, auto-reserve detects existing reservations and skips them.
+Re-running the staging script on the same month is safe — upsert in place;
+auto-reserve detects existing reservations and skips.
 
 ---
 
-## Edge Functions (Staging)
+## Edge Functions
 
-Tenant-aware as of Phase 2:
-- `notify-customers` — tenant-scoped recipients, paper email filter
-- `create-paper-customer` — explicit `tenant_id` on profile insert
-- `invite-customer` — explicit `tenant_id` + inline HTML email (replaced shared template)
-- `register-customer` — explicit `tenant_id`, MailerLite group filter
-- `send-my-list` — tenant-scoped catalog month query
+All 8 functions are in the repo at `supabase/functions/*` (post-4.1 Session 1).
+Tenant-aware as of Phase 2 + 4.1 hardening:
+- `notify-customers` — in-body admin auth (F47); recipient list scoped to caller's tenant
+- `create-paper-customer` — in-body auth; JWT-off platform setting (post-4.1 C13)
+- `invite-customer` — in-body auth; explicit `tenant_id` + inline HTML template
+- `register-customer` — explicit `tenant_id` (intentionally pinned to founding;
+  Phase 5 will revisit for self-service signup)
+- `send-my-list` — in-body auth + caller identity check (F51, F54); tenant-scoped queries
+- `claim-paper-customer` — in-body auth; PATCHes tenant-scoped (F50)
+- `approve-customer` — PATCH-only on existing rows; tenant inherited from row
+- `reset-password` — public endpoint by design
 
-Unchanged in Phase 2 (PATCH/DELETE on existing rows only):
-- `approve-customer`, `claim-paper-customer`, `reset-password`
-
-The `FOUNDING_TENANT_ID` secret must be set in Supabase staging → Edge
-Functions → Secrets for the tenant-aware functions to work.
-
-**Database functions also patched during Phase 3.3:**
-The `archive_stale_reservations` SQL function was updated inline during
-3.3 verification. Phase 1.3 had added `p_tenant_id` as a parameter and
-filtered the SELECT by it, but the INSERT into `reservation_history` was
-missing `tenant_id` in the column list — the now-removed column default
-had been masking the gap. Fix is documented in
-`docs/phase-3.3-remove-column-defaults.md` § Execution Notes.
+`FOUNDING_TENANT_ID` secret must be set in Supabase staging → Edge Functions →
+Secrets for tenant-aware functions to work.
 
 ---
 
 ## Known Out-of-Scope Items
 
-The following are pending or deferred work that should NOT be touched in
-agentic sessions without explicit user approval:
+Pending or deferred work — do NOT touch in agentic sessions without explicit
+approval.
 
-### Pending — will be addressed in scheduled sub-deploys
-- **Analytics views** (`analytics_*`) — pending sub-deploy 3.4
-- **Admin operational tooling** (Wednesday workflow printouts, per-customer
-  print buttons) — pending sub-deploy 3.6
+### Pending — addressed in scheduled sub-deploys
+- **Production migration** — Phase 4 sub-deploys 4.2–4.7
+- **`import.js` (production) patches** — Sub-deploy 4.5 (bidirectional merge
+  per parent plan). Do NOT modify until production gets Phase 1 schema
 
-### Deferred — feature not in active use, no urgency
-- **Partial fulfillment not representable** — when a customer reserves quantity
-  3 of an item, the system can mark the whole row fulfilled or unfulfilled but
-  not "2 of 3 fulfilled, 1 still pending." This is a feature, not a bug — a
-  product decision. Deferred until product scoping happens.
+### Deferred — feature not in active use
+- **Partial fulfillment not representable** — product decision, deferred until
+  product scoping
 
-### Deferred — production / infrastructure
-- **Production deploys** — staging only until Phase 3 completes; production
-  migration is a future Phase 4
-- **Hosting migration** (GitHub Pages → Cloudflare Pages or Vercel) — required
-  before subdomain-based tenant routing; future phase
-- **Per-tenant branding rendering** — `tenants.branding` column exists, but
-  no UI reads it yet; do not render
-- **import.js (production)** — DO NOT modify until production gets Phase 1
-  schema. The staging script (`import-staging.js`) is the only patched copy.
-- **Edge Function business logic** — only `tenant_id` changes are in scope
-  until a later phase
+### Deferred — Phase 5
+- **Hosting migration** (GitHub Pages → Cloudflare/Vercel)
+- **Per-tenant branding rendering** — `tenants.branding` jsonb exists; no UI reads it
+- **Self-service tenant signup**
+- **Slug→id RPC** — `TENANT_SLUG_MAP` hardcoded in `app.js`
 
+<<<<<<< Updated upstream
 ### Deferred — architectural concerns noted but not blocking
+=======
+### Deferred — post-Phase-4 housekeeping
+- **Vestigial `settings.maintenance_mode` row** on production — nothing reads it;
+  drop post-cutover
+- **`pre-multitenancy-state.md` § 2/§ 4 annotation** — point at `production-baseline-2026-05-28.md`
+>>>>>>> Stashed changes
 
-  - **import.js (production) — required patches before first prod run
-  after Phase 1 schema migration:**
-  - Match all Phase 2 + 3.2 + 3.3 + soak hot-fixes already applied
-    to `import-staging.js`, including:
-    - `tenant_id` field on every record passed to `weekly_shipment`
-      (the soak-discovered gap from 2026-05-08, fixed in
-      `upsertShipment()` row builders)
-    - All other `TENANT_ID` references that exist in the staging
-      script as of the cutover date
-    - Phase 3.6 auto-fulfill RPC call: a new Step 9 calling
-      `auto_fulfill_past_on_sale(p_tenant_id)` immediately before the
-      `"✅ Import complete!"` line. Mirrors the Phase 3.5 purge call;
-      same shape, same tenant ID resolution.
-    - **Phase 3.7 row-builder refactor:** extract the two inline row-builder
-      blocks in `upsertShipment()` into named helpers `buildLunarShipmentRows`
-      and `buildPrhShipmentRows` (pure functions, `tenantId` passed explicitly).
-      Wrap `main()` in `if (require.main === module)`. Add
-      `module.exports = { buildLunarShipmentRows, buildPrhShipmentRows }` at
-      the bottom. Mirrors the refactor already applied to `import-staging.js`.
-  - Until production gets Phase 1 schema, **do not** apply these
-    patches — production schema does not have `tenant_id` columns
-    and the patches will fail.
-  - The cleanest path is: production migration ships the schema +
-    patched script together as a single coordinated change.
-
-If a session needs to touch any of the above, stop and confirm with the user first.
+If a session needs to touch any of the above, **stop and confirm**.
 
 ---
 
 ## Known Issues & Gotchas
 
-- **PowerShell**: Doesn't support `&&` — run git commands on separate lines
-- **PowerShell + Supabase**: `Invoke-RestMethod` mangles JSON quotes in argv and
-  triggers 401s with new-format `sb_secret_` keys. Use `curl.exe` with
-  `--data-binary @file` for tenant-aware Supabase calls. See `test-magic-link.ps1`
-  for the working pattern.
-- **OneDrive + PowerShell scripts**: OneDrive flags synced `.ps1` files as
-  "downloaded from internet," which blocks execution even with `RemoteSigned`
-  policy. Run `Unblock-File .\<script>.ps1` after each sync.
-- **Supabase `range()`**: Returns 416 on empty result sets — use count-first approach
-- **UTC timezone shift**: Never use `toISOString()` for date display — use local date parts
-- **`config.js`**: Must be restored after every staging→main merge
-- **Import script service key**: Must be `service_role` key (or new-format
-  `sb_secret_` key), NOT anon key — RLS blocks anon
-- **`nav-hamburger`**: Must be present in every HTML file's nav — easy to lose on file updates
-- **Supabase SQL editor bypasses RLS**: It runs as `postgres` superuser. To
-  test RLS isolation, simulate an authenticated user inside a transaction with
-  `SET LOCAL role authenticated` and `SET LOCAL "request.jwt.claims" = ...`
-- **RLS recursion**: Admin policies that reference `user_profiles` via
-  `EXISTS (SELECT ... FROM user_profiles)` cause infinite recursion → 500
-  errors. Use the `current_user_is_admin()` `SECURITY DEFINER` function
-  instead. This is already in place post-Phase-1.
-- **Supabase Auth admin `?email=` filter**: Intermittently returns 500 with
-  "Database error finding users" (known GoTrue bug). When listing users by
-  email, query `user_profiles` via PostgREST instead.
-- **import-staging.js was hot-patched on 2026-05-08** for a
-  `weekly_shipment` tenant_id NOT NULL violation. Two row-object
-  literals in `upsertShipment()` now pass `tenant_id: TENANT_ID`.
-  Re-syncing the script from any earlier backup will reintroduce
-  the bug. See `docs/phase-3-tenant-resolution.md` § Discovered
-  During Soak entry dated 2026-05-08 for context.
+- **PowerShell:** does not support `&&` — separate lines
+- **PowerShell + Supabase:** `Invoke-RestMethod` mangles JSON quotes in argv and
+  triggers 401s with `sb_secret_` keys. Use `curl.exe` with `--data-binary @file`
+  for tenant-aware Supabase calls. See `test-magic-link.ps1`
+- **OneDrive + PowerShell scripts:** OneDrive flags synced `.ps1` files as
+  "downloaded from internet," blocking execution. Run `Unblock-File .\<script>.ps1`
+  after each sync
+- **Supabase `range()`:** returns 416 on empty result sets — use count-first approach
+- **UTC timezone shift:** never use `toISOString()` for date display — use local parts
+- **Import script service key:** must be `service_role` (or `sb_secret_`), NOT
+  anon — RLS blocks anon
+- **`nav-hamburger`:** must be present in every HTML file's nav
+- **RLS recursion:** admin policies referencing `user_profiles` via `EXISTS (SELECT
+  ... FROM user_profiles)` cause infinite recursion → 500 errors. Use
+  `current_user_is_admin()` SECURITY DEFINER. Already in place post-Phase-1
+- **Supabase Auth admin `?email=` filter:** intermittent 500 ("Database error
+  finding users"). Query `user_profiles` via PostgREST instead
+- **`import-staging.js` was hot-patched 2026-05-08** for a `weekly_shipment`
+  tenant_id NOT NULL violation — re-syncing from an earlier backup reintroduces
+  the bug. See `phase-3-tenant-resolution.md` § Discovered During Soak
+
 ---
 
 ## Files That Must Stay in Sync
 
 The nav block must be identical across `catalog.html`, `mylist.html`,
-`arrivals.html`, `subscriptions.html`, and `admin.html`. When updating
-nav, copy from the most recently-updated file rather than typing from
-memory — the canonical version is whichever HTML file was last touched.
+`arrivals.html`, `subscriptions.html`, `admin.html`. When updating nav, copy from
+the most recently-updated file — the canonical version is whichever HTML file
+was last touched.
 
-The footer block must also be identical across all five pages, placed
-immediately before `<div id="toast-container"></div>`.
+The footer block must be identical across all five pages, placed immediately
+before `<div id="toast-container"></div>`.
 
-The `<script>` load order must be the same on every page:
-Supabase UMD bundle → `config.js` → `app.js` → page-specific code.
+The `<script>` load order must be the same on every page: Supabase UMD bundle
+→ `config.js` → `app.js` → page-specific code.
 
 ---
 
 ## Smoke Test Suite (local)
 
 **Location:** `C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\playwright\`
-(local-only — never committed to any branch)
+(local-only; never committed)
 
-**How to run:**
 ```powershell
 cd C:\Users\richa\OneDrive\Documents\(Work)\BookStop\catalogs\scripts\playwright
-.\run-smoke.ps1        # full suite: Node import regression + 13 Playwright specs
-.\run-smoke.ps1 -Headed  # headed mode (browser window visible)
-npx playwright test 04-arrivals-this-week  # single spec
+.\run-smoke.ps1                              # full suite
+.\run-smoke.ps1 -Headed                       # browser visible
+npx playwright test 04-arrivals-this-week     # single spec
 ```
 
-**What it covers:** magic-link auth, catalog reserve → mylist, cancel guards,
-arrivals orphan-reserved rendering (2026-05-06 soak regression), subscriptions
-subscribe/unsubscribe, admin bagging list + week nav, and tenant isolation
-including F15 (`weekly_shipment` RLS) and F20 (`get_popular_series` per-tenant
-counts). Also includes a Node unit test for the import-script row builders
-(2026-05-08 soak regression).
+**Coverage:** magic-link auth, catalog reserve → mylist, cancel guards, arrivals
+orphan-reserved rendering, subscriptions, admin bagging + week nav, tenant
+isolation (F15, F20), import-script row-builder unit test.
 
 **Rules:**
 - Local-only. Never committed. Never runs against production.
-- `SUPABASE_URL` in `.env` must be the staging Supabase URL; the config and
-  runner both abort if it's the production URL.
-- All `goto()` calls in specs use paths without a leading slash (e.g.,
-  `'mylist.html'`). A leading slash resolves against the GitHub Pages origin
-  root and redirects to the production custom domain.
+- `SUPABASE_URL` in `.env` must be staging; runner aborts if it's prod
+- All `goto()` calls use paths without a leading slash
 
-**Canonical detail:** `docs/phase-3.7-playwright-smoke-tests.md`
+Canonical detail: `docs/phase-3.7-playwright-smoke-tests.md`
