@@ -65,8 +65,25 @@ pass 5 / fail 0
 
 No findings. No regressions. Soak day 2 clean.
 
-## Day 3 — pending
+## Day 3 — 2026-05-29
 
-Observation checklist for Day 3 (2026-05-29):
-- Re-run V7.1 and V7.2 SQL probes
-- Session 3: canary teardown + final doc updates + PR merge to staging
+### Observations
+
+- V7.1/V7.2 abbreviated SQL probes: both 0 (no state drift)
+- Canary row integrity: confirmed unchanged
+- Playwright full suite (13 specs): all pass
+- Import script regression tests (node --test, 5 tests): all pass
+
+```
+✔ buildLunarShipmentRows: every row carries tenant_id
+✔ buildLunarShipmentRows: split shipment lines collapse and sum quantity
+✔ buildPrhShipmentRows: every row carries tenant_id
+✔ buildPrhShipmentRows: rows without item_code or on_sale_date are filtered
+✔ buildLunarShipmentRows: catalog_id is wired in when catalogMap has a match
+pass 5 / fail 0
+```
+
+### Notes
+
+No findings. No regressions. 3-day soak complete — all checks clean across all three days.
+**Soak gate: PASSED. Proceeding to Session 3 (canary teardown + PR merge).**
