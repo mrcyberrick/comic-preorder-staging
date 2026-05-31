@@ -45,8 +45,8 @@ Phase 4 is broken into **seven sub-deploys**. The first two (4.0, 4.1) ship on s
 | 4.2 | Prod schema — additive (`tenants` table, `tenant_id` cols + backfill on all 9 existing tables) | `phase-4.2-prod-schema-additive.md`   | Complete | 2026-05-30 |
 | 4.3 | Prod schema — constraints + view recreation + RLS recursion fix          | `phase-4.3-prod-schema-constraints.md`                | Complete | 2026-05-31 |
 | 4.4 | Prod schema — RLS + functions + analytics views + default removal        | `phase-4.4-prod-schema-rls.md`                        | Complete | 2026-05-31 |
-| 4.5 | Prod `import.js` — bidirectional merge with staging                      | `phase-4.5-prod-import-merge.md`                      | Planning | —         |
-| 4.6 | Edge Functions redeploy + first prod import dry-run + smoke + maintenance off | `phase-4.6-edge-functions-cutover.md`            | Pending  | —         |
+| 4.5 | Prod `import.js` — bidirectional merge with staging                      | `phase-4.5-prod-import-merge.md`                      | Complete | 2026-05-31 |
+| 4.6 | Edge Functions redeploy + first prod import dry-run + smoke + maintenance off | `phase-4.6-edge-functions-cutover.md`            | Planning | —         |
 | 4.7 | One-week post-cutover soak observation                                   | `phase-4.7-post-cutover-soak.md`                      | Pending  | —         |
 
 ### Status values
@@ -149,7 +149,7 @@ A failing gate is Tier 1 rollback per § Rollback Decision Tree. Maintenance mod
 - Apply Phase 3.5 `purge_old_usage_events(p_tenant_id, p_retention_days)` function (4.4)
 - Apply Phase 3.6 `auto_fulfill_past_on_sale(p_tenant_id)` function with `SECURITY DEFINER`, `search_path = public`, `EXECUTE` granted to `service_role` only (4.4)
 - Apply 3.8-era hot-fix RLS / function changes: F4, F15, F16, F20, F34 fixes from 2026-05-10 (4.4) **Status 2026-05-31: F15 + F16 subsumed by RLS rewrite; F20 applied via `get_popular_series` replace. F34 → 4.6 (Edge Function redeploy). F4 → 4.6 app-code deploy + post-cutover data drop.**
-- Bidirectional merge of `import.js` (production) with `import-staging.js` using **Strategy B**: prod is the base; each of the 14 staging→prod patches per `CLAUDE.md` line 431–449 carry-forward list is applied as a discrete reviewable diff with its own verification step. The four prod→staging features identified in 2026-05-24 drift analysis (`--skip-autoreserve`, `isOlderMonth`, auto-skip-auto-reserve-for-backfills, older-month warning) are explicit no-op preservation checks ("# already present, preserve at lines X–Y") rather than re-introductions (4.5)
+- Bidirectional merge of `import.js` (production) with `import-staging.js` using **Strategy B**: prod is the base; each of the **16** staging→prod patches (P1–P16, per `phase-4.5-prod-import-merge.md` § 4 — the `CLAUDE.md` line-431–449 carry-forward list was stale; the 4.5 runbook file diff is authoritative) is applied as a discrete reviewable diff with its own verification step. The four prod→staging features identified in 2026-05-24 drift analysis (`--skip-autoreserve`, `isOlderMonth`, auto-skip-auto-reserve-for-backfills, older-month warning) are explicit no-op preservation checks ("# already present, preserve at lines X–Y") rather than re-introductions (4.5)
 - Force a `git log -p import-staging.js | grep foc_date` step in the 4.5 plan to recover the history of the `r.foc_date >= today` notify-customers filter and decide whether to propagate to prod (4.5)
 - Set production founding tenant UUID as `import.js`'s `TENANT_ID` constant — UUID generated during 4.2 insertion, not reused from staging (4.5)
 - Redeploy all 8 Edge Functions to production from the staging tagged commit; set `FOUNDING_TENANT_ID` Supabase secret on the production project (4.6 part 1)
