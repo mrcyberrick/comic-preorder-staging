@@ -9,11 +9,11 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 4 — Production Migration
 **Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
-**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29
-**Active sub-deploy:** 4.2 — Prod schema additive — plan written (`docs/phase-4.2-prod-schema-additive.md`, `docs/phase-4.2-runbook.md`)
+**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29; 4.2 closed 2026-05-30
+**Active sub-deploy:** 4.3 — Prod schema constraints + view recreation + RLS recursion fix — plan not yet written
 **Plan (Phase 4 parent):** `docs/phase-4-production-migration.md`
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
-**Last completed sub-deploy:** 4.1 — see `docs/phase-4.1-pre-cutover-hardening.md`
+**Last completed sub-deploy:** 4.2 — see `docs/phase-4.2-prod-schema-additive.md`
 **Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md`, `docs/pre-multitenancy-state.md` (§ 2/§ 4 superseded by `docs/production-baseline-2026-05-28.md`)
@@ -25,7 +25,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 - Per-tenant branding rendering
 - Pre-Phase-4 hardening sub-deploy: **complete (4.1, 2026-05-29)** — F16/F34 deep audit, Finding E grants tightening, `claim_paper_account` dropped, `upsertShipment` and `buildCatalogIdMap` scoped, F17 fixed, Edge Function auth gaps closed (F47/F50/F51/F54), 3-day canary soak clean
 
-**Phase 4 next milestones:** 4.2 planning (rewritten against live production baseline) → cutover weekend window (4.2–4.6) → 4.7 soak.
+**Phase 4 next milestones:** 4.3 planning session (re-scope against live production baseline + `is_admin()` body) → continue cutover window (4.3–4.6) → 4.7 soak.
 **Phase 5 (queued, not started):** Second-tenant onboarding — hosting migration, branding rendering, slug→id routing, self-service signup.
 
 Before proposing any work, read the active phase docs and confirm the proposed

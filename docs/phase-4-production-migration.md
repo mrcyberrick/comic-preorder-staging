@@ -42,7 +42,7 @@ Phase 4 is broken into **seven sub-deploys**. The first two (4.0, 4.1) ship on s
 |-----|--------------------------------------------------------------------------|-------------------------------------------------------|----------|-----------|
 | 4.0 | Backfill parity — port prod's older-month features into staging          | `phase-4.0-backfill-parity.md`                        | Complete | 2026-05-26 |
 | 4.1 | Pre-cutover hardening — RLS/EF/script cross-tenant audit + canary tenant | `phase-4.1-pre-cutover-hardening.md`                  | Complete | 2026-05-29 |
-| 4.2 | Prod schema — additive (Phase 1.1 + 3.x deltas; create `app_settings` / `usage_events`) | `phase-4.2-prod-schema-additive.md`        | Planning | —         |
+| 4.2 | Prod schema — additive (`tenants` table, `tenant_id` cols + backfill on all 9 existing tables) | `phase-4.2-prod-schema-additive.md`   | Complete | 2026-05-30 |
 | 4.3 | Prod schema — constraints + view recreation + RLS recursion fix          | `phase-4.3-prod-schema-constraints.md`                | Pending  | —         |
 | 4.4 | Prod schema — RLS + functions + analytics views + default removal        | `phase-4.4-prod-schema-rls.md`                        | Pending  | —         |
 | 4.5 | Prod `import.js` — bidirectional merge with staging                      | `phase-4.5-prod-import-merge.md`                      | Pending  | —         |
