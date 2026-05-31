@@ -46,8 +46,8 @@ Phase 4 is broken into **seven sub-deploys**. The first two (4.0, 4.1) ship on s
 | 4.3 | Prod schema — constraints + view recreation + RLS recursion fix          | `phase-4.3-prod-schema-constraints.md`                | Complete | 2026-05-31 |
 | 4.4 | Prod schema — RLS + functions + analytics views + default removal        | `phase-4.4-prod-schema-rls.md`                        | Complete | 2026-05-31 |
 | 4.5 | Prod `import.js` — bidirectional merge with staging                      | `phase-4.5-prod-import-merge.md`                      | Complete | 2026-05-31 |
-| 4.6 | Edge Functions redeploy + first prod import dry-run + smoke + maintenance off | `phase-4.6-edge-functions-cutover.md`            | Planning | —         |
-| 4.7 | One-week post-cutover soak observation                                   | `phase-4.7-post-cutover-soak.md`                      | Pending  | —         |
+| 4.6 | Edge Functions redeploy + first prod import dry-run + smoke + maintenance off | `phase-4.6-edge-functions-cutover.md`            | Complete | 2026-05-31 |
+| 4.7 | One-week post-cutover soak observation                                   | `phase-4.7-post-cutover-soak.md`                      | Planning | —         |
 
 ### Status values
 

@@ -1655,6 +1655,7 @@ production-staging URL bug unrelated to multi-tenancy (F35).
   deleted after staging smoke test confirmed the panel still renders.
   `settings` table is now empty. Table itself not yet dropped —
   separate dead-code cleanup pass.
+  **Prod resolution 2026-05-31 (Phase 4.6):** app-code merge (§ 4) routes reads to `app_settings`; `settings` rows `popular_series` and `maintenance_mode` deleted (§ 8 data drop); `settings` table on production is now empty. F4 fully resolved on both environments.
 - The legacy `settings` table holds `popular_series` (read by
   subscriptions.html) and `maintenance_mode` (orphan duplicate of the
   `app_settings.maintenance_mode` row). The modern `app_settings` table
@@ -1727,6 +1728,7 @@ production-staging URL bug unrelated to multi-tenancy (F35).
 - **Fix:** resolve the inviting admin's tenant_id from their own profile
   (look up `user_profiles.tenant_id WHERE id = caller's auth.uid()`)
   and use that value instead of FOUNDING_TENANT_ID.
+- **Prod resolution 2026-05-31 (Phase 4.6):** `FOUNDING_TENANT_ID` secret set on prod project (§ 1); all 8 EFs redeployed from staging SHA `cab5dca` (§ 2). F34 fully resolved on production.
 
 ### Medium
 

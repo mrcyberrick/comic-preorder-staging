@@ -456,6 +456,26 @@ docs: close Phase 4.6 (EF cutover, first prod import, maintenance off); advance 
 
 ---
 
+## 14. Deploy log (recorded 2026-05-31)
+
+| Item | Value |
+|---|---|
+| Staging SHA (pinned) | `cab5dca53868eb90719f8576c4b40b67c0cc7c34` |
+| EF deploys | All 8 deployed 2026-05-31 from staging SHA `cab5dca` |
+| App-code PR | #49 `feat/phase-4.6-appcode-prod → main` |
+| Migration-artifact PR | `feat/phase-4-prod-cutover → main` |
+| Import exit code | 0 |
+| Catalog upserted | 2306 / 2306 with_tid |
+| Preorders with_tid | 325 / 325 |
+| Shipment with_tid | 486 / 486 |
+| Auto-reserve inserts | 2 (3 subscriptions; 1 no standard cover match in May catalog) |
+| Auto-fulfill (import) | 0 (all existing preorders already in fulfilled state) |
+| Usage events purged | 0 |
+| Recovery tags | `phase-4-cutover-v1` (prod), `phase-4-cutover-v1-staging` |
+| Discovered (not finding) | `app_settings` on prod uses `value TEXT` column, not boolean `maintenance_mode` column — 4.6 runbook SQL corrected inline; `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` env vars were set in Rick's shell from staging `.env`; cleared before real import |
+
+---
+
 ## Appendix A — Post-cutover housekeeping pass (catalogued; **NOT executed in 4.6**)
 
 > **GUARD.** This appendix is **not** part of the 4.6 cutover window and the CLI session running §§ 0–13 **must not execute it**. It is captured here so the deferred cleanup is concrete and actionable for its own follow-on session. Run it as a **separate sub-deploy after the 4.7 soak opens**, on its own plan file, under the standard one-sub-deploy-per-session and Rick-in-the-loop rules. It clears F55/F56/F57 so the Phase-4 structural-diff completion criterion (parent line 189) can pass without standing annotations.

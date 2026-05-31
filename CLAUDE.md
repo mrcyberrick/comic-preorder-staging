@@ -9,11 +9,11 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 4 — Production Migration
 **Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
-**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29; 4.2 closed 2026-05-30; 4.3 closed 2026-05-31; 4.4 closed 2026-05-31
-**Active sub-deploy:** 4.6 — Edge Functions redeploy + first prod import + maintenance off
+**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29; 4.2 closed 2026-05-30; 4.3 closed 2026-05-31; 4.4 closed 2026-05-31; 4.5 closed 2026-05-31; 4.6 closed 2026-05-31
+**Active sub-deploy:** 4.7 — Post-cutover soak observation
 **Plan (Phase 4 parent):** `docs/phase-4-production-migration.md`
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
-**Last completed sub-deploy:** 4.4 — see `docs/phase-4.4-prod-schema-rls.md`
+**Last completed sub-deploy:** 4.6 — see `docs/phase-4.6-edge-functions-cutover.md`
 **Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md`, `docs/pre-multitenancy-state.md` (§ 2/§ 4 superseded by `docs/production-baseline-2026-05-28.md`)
