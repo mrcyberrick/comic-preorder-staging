@@ -347,11 +347,19 @@ git checkout main
 git pull origin main
 git merge staging --no-commit --no-ff
 git checkout main -- config.js   # preserve prod credentials (config.js is tracked per-branch)
+# Assert critical app files actually changed (catches merge-base regression — see F59):
+foreach ($f in @('app.js', 'mylist.html', 'arrivals.html', 'admin.html')) {
+    $diff = git diff "main:$f" "staging:$f" 2>$null
+    if ($diff) { Write-Host "ok: $f differs from main (will update)" }
+    else { Write-Host "WARN: $f identical to main — verify this is expected, NOT a merge-base regression" }
+}
 git commit -m "<type>: <description>"
 git checkout -b feat/<description>-prod
 git push origin feat/<description>-prod
 # Open PR: feat/<description>-prod → main
 # Verify config.js is NOT in the diff before merging
+# Post-deploy write-smoke: reserve one item through the live app as a test user, confirm
+# the row lands in prod preorders with correct tenant_id, then cancel it.
 ```
 
 ---

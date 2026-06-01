@@ -277,6 +277,14 @@ git merge staging --no-commit --no-ff
 git checkout main -- config.js          # preserve prod credentials (config.js tracked per-branch)
 # Verify config.js is NOT in the staged diff:
 git diff --cached --name-only | grep -x 'config.js' && echo "ABORT: config.js staged" || echo "ok: config.js preserved"
+# Assert critical app files actually changed (catches merge-base regression — see F59):
+for f in app.js mylist.html arrivals.html admin.html; do
+  if ! git diff --quiet "main:$f" "staging:$f"; then
+    echo "ok: $f differs from main (will update)"
+  else
+    echo "WARN: $f identical to main — verify this is expected, NOT a merge-base regression"
+  fi
+done
 git commit -m "feat: promote Phase 2–3.8 tenant-aware app code to production (Phase 4.6)"
 git checkout -b feat/phase-4.6-appcode-prod
 ```

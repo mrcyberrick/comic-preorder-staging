@@ -2100,6 +2100,18 @@ Surfaced during the 4.4 cutover sub-deploy (2026-05-31).
 - **Where:** staging RLS on `user_profiles`; `app.js` `Users.suspend` and `Users.deleteProfile`; `admin.html` line 1608.
 - **Fix:** audit staging admin Users tab (suspend + delete flows) to determine actual code path; if authenticated-key, add the missing admin-write policy to staging; if service-role EF, document as the architectural intent and remove `admins manage tenant profiles` from prod to match.
 
+### Phase 4.7 findings (F59)
+
+Surfaced during the 4.7 soak (2026-06-01).
+
+#### F59 — Customer reservation cohort lost during Phase-4 cutover window (recovered)
+- **Status:** closed — data recovered 2026-06-01; prevention added to deployment workflow.
+- **Severity:** high — store-wide data loss (330 reservations across 9 customers).
+- Customer reservations created ~2026-04-29 → 2026-05-28 failed to persist to production `preorders`. Root cause: PR #49 (`staging → main` three-way merge) kept `main:app.js` at the pre-Phase-3 regressed version (43 KB) instead of the staging version (49 KB with `TenantContext`). Merge base `cab5dca` already contained staging's `app.js`; the three-way merge saw no delta on that side and silently kept the regressed copy. The deployed app did not write tenant-aware reservations (no `tenant_id`), so all INSERTs failed silently at the NOT-NULL constraint without a visible error to customers. Hotfix `554aec1` corrected `app.js` 2026-05-30; gap-period data was not carried forward.
+- **Recovery (2026-06-01):** source = 2026-05-30 DBeaver per-table export (`backups/pulllist/dump-postgres-202605302059.backup`). Parsed `preorders` COPY data; filtered 330 in-window rows (2026-04-29 → 2026-05-28); re-resolved each stale `catalog_id` to current prod catalog via ItemCode (all 330 RESOLVED, 0 unresolved); re-stamped `tenant_id` to founding UUID; preserved original `created_at`. Brian Moss spot-check oracle (23 Jul/Aug rows) confirmed. App-side: Brian's My List shows 23 items; 44 upcoming arrivals correct.
+- **Prevention:** post-merge app-file diff assertion + post-deploy write-smoke added to `CLAUDE.md` § Standard Deployment Workflow and `docs/phase-4.6-edge-functions-cutover.md` §4.
+- **Where:** production `preorders` table; PR #49 merge; `app.js` TenantContext regression.
+
 ---
 
 *End of document.*
