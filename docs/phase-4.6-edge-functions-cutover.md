@@ -20,7 +20,7 @@
 - `docs/phase-4-production-migration.md` — §§ *Sub-Deploys*, *Cutover window sequencing*, *Dry-Run Validation Gate*, *In Scope 4.6*, *Rollback Decision Tree*.
 - `docs/phase-4.4-prod-schema-rls.md` — F55 carve-out; F34/F4 routed-to-4.6 notes; Decision B (`user_profiles` admin-write retained on prod).
 - `docs/phase-4.5-prod-import-merge.md` — patch inventory P1–P16; the post-P11 builder extraction; V1–V6 results.
-- `docs/technical-reference.md` § 13 — findings index. **Highest filed = F58. F59 is free** (P16 was propagated, not skipped). Do not assign new IDs in 4.6 unless a genuine new defect surfaces.
+- `docs/technical-reference.md` § 13 — findings index. **Highest filed = F59** (filed + closed 2026-06-01; F59 = cutover-window reservation data loss, recovered). Do not assign new IDs in 4.6 unless a genuine new defect surfaces.
 - `CLAUDE.md` — § *Current Migration Phase*, § *Edge Functions* (8 names + `FOUNDING_TENANT_ID` secret), deployment workflow.
 
 ### 0.2 Files Claude must NOT touch
@@ -458,7 +458,7 @@ docs: close Phase 4.6 (EF cutover, first prod import, maintenance off); advance 
 - Parent: `docs/phase-4-production-migration.md` — In-Scope 4.6 (lines 155–160), Dry-Run gate (106–118), sequencing (56–76), rollback (228–259), completion (184–202).
 - `docs/phase-4.4-prod-schema-rls.md` — F55 carve-out; Decision B; F34/F4 routed-to-4.6.
 - `docs/phase-4.5-prod-import-merge.md` — P1–P16; post-P11 builders; the `--no-write` design question this plan settles (§ 3).
-- `docs/technical-reference.md` § 13 — F4, F34, F55–F58; highest filed F58; F59 free.
+- `docs/technical-reference.md` § 13 — F4, F34, F55–F59; highest filed F59 (closed 2026-06-01).
 - `CLAUDE.md` — § Edge Functions (8 names, `FOUNDING_TENANT_ID`), deployment workflow (staging→main, `git checkout main -- config.js`), anti-drift stop-and-ask.
 - Prod project ref `plgegklqtdjxeglvyjte`; prod founding UUID in `scripts/phase-4-prod-tenant-uuid.txt` (gitignored).
 

@@ -223,6 +223,11 @@ These items were noted in Phase 3 docs as carrying into Phase 4:
 
 (Populated as sub-deploys ship and issues surface. Same template as `phase-3-tenant-resolution.md` § Discovered During Soak.)
 
+| # | Discovered | Sub-deploy | Description | Resolution |
+|---|---|---|---|---|
+| 1 | 2026-05-31 | 4.6 (soak) | 250 April + 8 March preorders had `fulfilled=false` at cutover; bulk-UPDATE attempted, immediately rolled back (all 258 were future-dated). Correct final state: 258 future items remain `fulfilled=false`; 65 past-on-sale items already `fulfilled=true`. | Resolved inline; see 4.6 deploy log § 14. |
+| 2 | 2026-06-01 | 4.7 (soak) | **F59 — cutover-window reservation data loss.** PR #49 three-way merge kept regressed `app.js`; 330 reservations across 9 customers (2026-04-29 → 2026-05-28) failed to persist. Hotfix `554aec1` corrected app.js; data recovered from 5/30 DBeaver dump via ItemCode re-resolution. | Recovered 2026-06-01 (330 rows restored; Brian Moss spot-check ✓). F59 filed in `technical-reference.md` § 13. Prevention committed in `7c5e4cb`. |
+
 ---
 
 ## Rollback Decision Tree
