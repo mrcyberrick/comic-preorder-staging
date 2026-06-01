@@ -473,6 +473,7 @@ docs: close Phase 4.6 (EF cutover, first prod import, maintenance off); advance 
 | Usage events purged | 0 |
 | Recovery tags | `phase-4-cutover-v1` (prod), `phase-4-cutover-v1-staging` |
 | Discovered (not finding) | `app_settings` on prod uses `value TEXT` column, not boolean `maintenance_mode` column — 4.6 runbook SQL corrected inline; `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` env vars were set in Rick's shell from staging `.env`; cleared before real import |
+| Post-cutover hotfix | `fix/appjs-tenantcontext-prod → main` (commit `554aec1`) — PR #49 merge left `main:app.js` at the pre-Phase-3 version (43 KB) instead of the staging version (49 KB with TenantContext). Root cause: merge base `cab5dca` already contained staging's `app.js`; three-way merge saw no delta and kept main's regressed copy. Hotfix: `git checkout staging -- app.js` onto a fresh branch, merged immediately. Login page confirmed working post-deploy. |
 
 ---
 
