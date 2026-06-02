@@ -24,11 +24,22 @@ Deno.serve(async (req) => {
   }
 
   // Resolve caller identity: service-role bypass (import script) or user JWT (admin UI).
+  // Decode JWT role claim to detect service-role callers. Safe: platform JWT verification is ON,
+  // so only Supabase-signed tokens reach this function; a forged service_role claim is impossible.
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  const isServiceRole = (() => {
+    try {
+      const parts = token.split('.')
+      if (parts.length !== 3) return false
+      const pad = (s: string) => s + '=='.slice(0, (4 - s.length % 4) % 4)
+      const payload = JSON.parse(atob(pad(parts[1].replace(/-/g, '+').replace(/_/g, '/'))))
+      return payload.role === 'service_role'
+    } catch { return false }
+  })()
   let callerTenantId: string
 
-  if (SUPABASE_SERVICE && token === SUPABASE_SERVICE) {
-    // Service-role caller (e.g. import script) — trusted by construction; scope to founding tenant.
+  if (isServiceRole) {
+    // Service-role caller (e.g. import script) — scope to founding tenant.
     callerTenantId = FOUNDING_TENANT_ID || ''
   } else {
     // User JWT path — verify caller is an authenticated admin.
