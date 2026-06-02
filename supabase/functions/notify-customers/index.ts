@@ -23,25 +23,33 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Missing Authorization header' }, { status: 401, headers: corsHeaders })
   }
 
-  // Verify the JWT
-  const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
-    headers: { Authorization: authHeader, apikey: SUPABASE_ANON }
-  })
-  if (!userRes.ok) {
-    return Response.json({ error: 'Invalid auth' }, { status: 401, headers: corsHeaders })
-  }
-  const userData = await userRes.json()
+  // Resolve caller identity: service-role bypass (import script) or user JWT (admin UI).
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  let callerTenantId: string
 
-  // Confirm the caller is an admin and resolve their tenant
-  const profileRes = await fetch(
-    SUPABASE_URL + `/rest/v1/user_profiles?id=eq.${userData.id}&select=is_admin,tenant_id`,
-    { headers: { Authorization: authHeader, apikey: SUPABASE_ANON, Accept: 'application/json' } }
-  )
-  const profileData = await profileRes.json()
-  if (!Array.isArray(profileData) || profileData.length === 0 || !profileData[0].is_admin) {
-    return Response.json({ error: 'Admin required' }, { status: 403, headers: corsHeaders })
+  if (SUPABASE_SERVICE && token === SUPABASE_SERVICE) {
+    // Service-role caller (e.g. import script) — trusted by construction; scope to founding tenant.
+    callerTenantId = FOUNDING_TENANT_ID || ''
+  } else {
+    // User JWT path — verify caller is an authenticated admin.
+    const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
+      headers: { Authorization: authHeader, apikey: SUPABASE_ANON }
+    })
+    if (!userRes.ok) {
+      return Response.json({ error: 'Invalid auth' }, { status: 401, headers: corsHeaders })
+    }
+    const userData = await userRes.json()
+
+    const profileRes = await fetch(
+      SUPABASE_URL + `/rest/v1/user_profiles?id=eq.${userData.id}&select=is_admin,tenant_id`,
+      { headers: { Authorization: authHeader, apikey: SUPABASE_ANON, Accept: 'application/json' } }
+    )
+    const profileData = await profileRes.json()
+    if (!Array.isArray(profileData) || profileData.length === 0 || !profileData[0].is_admin) {
+      return Response.json({ error: 'Admin required' }, { status: 403, headers: corsHeaders })
+    }
+    callerTenantId = profileData[0].tenant_id || FOUNDING_TENANT_ID || ''
   }
-  const callerTenantId = profileData[0].tenant_id || FOUNDING_TENANT_ID
 
   try {
     if (!FOUNDING_TENANT_ID) {
