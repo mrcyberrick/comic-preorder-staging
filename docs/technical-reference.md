@@ -2095,8 +2095,8 @@ Surfaced during the 4.4 cutover sub-deploy (2026-05-31).
 - **Fix:** `DROP FUNCTION public.generate_invite_link(text, text);` executed 4.8 H3.
 
 #### F58 — staging RLS lacks an authenticated-key admin-write policy on `user_profiles`
-- **Status:** open — intentional prod divergence retained; staging needs audit.
-- `Users.suspend` (`app.js` UPDATE status) and `Users.deleteProfile` (`admin.html:1608` DELETE) are admin mutations via the **authenticated** client, not service-role. The staging `user_profiles` policy capture (2026-05-31) has only SELECT policies for admins — no admin ALL/UPDATE/DELETE. Either staging routes these through an unseen service-role Edge Function, or staging's admin suspend/delete is latently broken. Production intentionally keeps `admins manage tenant profiles` (ALL, authenticated). The Phase-level `pg_policies` parity check will flag this as a known intentional difference until staging is fixed.
+- **Status:** open — intentional prod divergence retained; staging needs audit. Re-confirmed 2026-06-10 (4.8 H4 structural diff): prod has `admins manage tenant profiles` (ALL, `TO authenticated`) on `user_profiles`; staging does not — matches F58 as originally written.
+- `Users.suspend` (`app.js` UPDATE status) and `Users.deleteProfile` (`admin.html:1608` DELETE) are admin mutations via the **authenticated** client, not service-role. The staging `user_profiles` policy capture (2026-05-31, re-confirmed 2026-06-10) has only SELECT policies for admins — no admin ALL/UPDATE/DELETE. Either staging routes these through an unseen service-role Edge Function, or staging's admin suspend/delete is latently broken. Production intentionally keeps `admins manage tenant profiles` (ALL, authenticated). The Phase-level `pg_policies` parity check will flag this as a known intentional difference until staging is fixed.
 - **Where:** staging RLS on `user_profiles`; `app.js` `Users.suspend` and `Users.deleteProfile`; `admin.html` line 1608.
 - **Fix:** audit staging admin Users tab (suspend + delete flows) to determine actual code path; if authenticated-key, add the missing admin-write policy to staging; if service-role EF, document as the architectural intent and remove `admins manage tenant profiles` from prod to match.
 
@@ -2134,6 +2134,32 @@ Surfaced during the 4.7 soak (2026-06-01 / 2026-06-02).
 - **Root cause:** Brave on iOS suppresses native `window.confirm()` dialogs in some contexts (treated as unwanted popups). The cancel-guard in `mylist.html` uses `if (!confirm("Remove this reservation?")) return;` — this silently returns `false` on Brave/iOS, blocking all removals.
 - **Fix:** Replace `window.confirm()` with a custom in-page modal (matches the existing cancel-guard pattern used in the admin bagging tab). Scope: `mylist.html` only.
 - **Where:** `mylist.html` — the Remove button click handler.
+
+### Phase 4.8 findings (F63–F64)
+
+Surfaced during the 4.8 H4 structural diff (2026-06-10).
+
+#### F63 — Staging RLS policies missing `TO authenticated` role qualifier
+- **Status:** open — filed 4.8 H4 (2026-06-10). Needs assessment before Phase-4-level `pg_policies` parity criterion can be ticked.
+- 13 staging `CREATE POLICY` statements lack the `TO authenticated` role clause and therefore apply to the `public` role (all roles including `anon`). Prod policies all explicitly include `TO authenticated`. Systematic divergence across 9 tables, not an isolated omission. Functional impact in current single-tenant setup is low — `anon` users cannot satisfy `current_tenant_id()` USING clauses without a valid session — but the missing qualifier means staging's security posture differs from prod.
+- **Affected policies (staging lacks `TO authenticated` while prod has it):** `app_settings` (admins delete, admins update), `preorders` (admins manage, users manage), `reservation_history` (admins view, users view), `settings` (admins update), `subscriptions` (admins view, users manage), `tenants` (admins update), `usage_events` (admins read), `user_profiles` (admins view, users update, users view own profile).
+- **Where:** staging `CREATE POLICY` DDL for 9 tables; visible in 2026-06-10 `pg_dump --schema-only` output.
+- **Fix:** add `TO authenticated` to the 13 staging policies that lack it, bringing staging into parity with prod. Verify no functional regression (all existing tests pass after; anon-role access to affected tables should remain blocked by `current_tenant_id()` returning NULL).
+
+#### F64 — Pre-Phase-4 DDL structural divergences (prod vs staging)
+- **Status:** open — filed 4.8 H4 (2026-06-10). Eight pre-existing differences that pre-date Phase 4; need assessment before Phase-4-level structural-diff criterion can be ticked. Do not reconcile inline — Phase 4 completion audit session.
+- **Enumerated differences (prod vs staging) from 2026-06-10 pg_dump:**
+  1. `catalog.price_usd`: prod `numeric(6,2)` vs staging `numeric` (no precision/scale)
+  2. `catalog`: prod has `CONSTRAINT catalog_distributor_check CHECK (distributor = ANY (ARRAY['Lunar', 'PRH']))` — staging does not
+  3. `preorders`: prod has `CONSTRAINT preorders_quantity_check CHECK ((quantity >= 1) AND (quantity <= 99))` — staging does not
+  4. `preorders_catalog_id_fkey`: prod `ON DELETE CASCADE`; staging default (NO ACTION)
+  5. `preorders_user_id_fkey`: **prod** `REFERENCES auth.users(id) ON DELETE CASCADE`; **staging** `REFERENCES public.user_profiles(id)` (different target table, no ON DELETE) — most material difference: different cascade path on user delete
+  6. `app_settings_updated_by_fkey`: prod has `FOREIGN KEY (updated_by) REFERENCES auth.users(id)`; staging does not
+  7. `user_profiles_id_fkey`: prod has `FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE`; staging does not
+  8. `idx_tenants_slug`: staging has index on `tenants(slug)`; prod does not
+- **Note on F19:** `is_admin()` function is also prod-only (pre-existing F19 finding); included for completeness but tracked under F19.
+- **Where:** pg_dump `--schema-only` output for both environments, 2026-06-10.
+- **Fix:** assess each item individually; most are additive prod constraints staging lacks (safe to add). Item 5 FK target requires careful analysis — cascade behaviour differs between environments for user deletes.
 
 ---
 

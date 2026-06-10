@@ -316,7 +316,9 @@ Runs after EF deploy + app-code merge, **before** maintenance-off and before the
 
 ## 6. F55 analytics views — explicit disposition (no third carry-forward)  *(doc-only → `staging`)*
 
-**Decision:** **DEFER** the analytics-view retrofit/drop to the **post-cutover housekeeping pass specified in Appendix A** (bundled with F56 and F57), **not** 4.6. Rationale: deciding drop-vs-retrofit safely requires `analytics.html` / `app.js` (how staging serves analytics) — not available to the 4.6 authoring inputs — and 4.6 is the one-shot window where blindly dropping a customer-visible admin surface is highest-risk. This is a disposition, not a silent carry-forward: F55 stays open with a named owner (Appendix A), and the phase structural-diff criterion is annotated so it does not falsely fail.
+> **RESOLVED 2026-06-10 (4.8 H1, drop branch):** All 5 `analytics_*` views dropped on production. Confirmed dead code — `analytics.html` queries `usage_events` directly; no view reads existed. `pg_views` verify returned zero rows; `analytics.html` renders post-drop. F55 → resolved in `technical-reference.md` § 13. The F55 annotation added to `phase-4-production-migration.md` completion criteria has been removed (4.8 H4 doc update).
+
+**Decision (original, 2026-05-31):** **DEFER** the analytics-view retrofit/drop to the **post-cutover housekeeping pass specified in Appendix A** (bundled with F56 and F57), **not** 4.6. Rationale: deciding drop-vs-retrofit safely requires `analytics.html` / `app.js` (how staging serves analytics) — not available to the 4.6 authoring inputs — and 4.6 is the one-shot window where blindly dropping a customer-visible admin surface is highest-risk. This is a disposition, not a silent carry-forward: F55 stays open with a named owner (Appendix A), and the phase structural-diff criterion is annotated so it does not falsely fail.
 
 **Claude applies (doc-only):**
 - `technical-reference.md` § 13 F55 **Status** → append: `Disposition 2026-05-31: deferred to post-cutover housekeeping pass with F56/F57; not in 4.6 scope. Requires analytics.html/app.js audit to choose drop-vs-retrofit.`

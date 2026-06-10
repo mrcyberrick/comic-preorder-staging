@@ -187,8 +187,8 @@ If something seems related but isn't on the IN scope list above, **stop and ask*
 Phase 4 is complete when **all** of the following are true:
 
 - [ ] All sub-deploys 4.0–4.7 in the Sub-Deploys table above marked Complete
-- [ ] Production schema mirrors post-Phase-3 staging schema (verifiable by structural diff: `pg_dump --schema-only` on each, normalize, compare) — **known tracked difference:** 5 prod-extra `analytics_*` views pending F55 (post-cutover housekeeping); criterion satisfied-with-annotation like F58 `user_profiles` exception
-- [ ] Production RLS policies match staging RLS policies for every tenant-scoped table (verifiable by `pg_policies` query diff) — **known intentional difference:** `admins manage tenant profiles` (ALL) on `user_profiles` retained on prod (Decision B / F58); staging audit pending
+- [ ] Production schema mirrors post-Phase-3 staging schema (verifiable by structural diff: `pg_dump --schema-only` on each, normalize, compare) — F55 cleared 4.8 H1; **known intentional differences remaining:** F58 `user_profiles` policy (prod has `admins manage tenant profiles` ALL; staging lacks it); F19 `is_admin()` function prod-only (pre-existing deferred dead code); **open findings from 4.8 H4 diff requiring assessment:** F64 (8 pre-Phase-4 DDL divergences incl. FK target difference on `preorders`) — Phase 4 completion audit session
+- [ ] Production RLS policies match staging RLS policies for every tenant-scoped table (verifiable by `pg_policies` query diff) — **known intentional difference:** `admins manage tenant profiles` (ALL) on `user_profiles` retained on prod (Decision B / F58); **open finding from 4.8 H4:** F63 (13 staging policies missing `TO authenticated` — apply to `public` role instead of `authenticated`) — Phase 4 completion audit session
 - [ ] All production Edge Functions match staging Edge Functions at the cutover tag (verifiable by source diff against tagged commit)
 - [ ] Production `import.js` has all Phase 2 + 3.x staging patches **and** preserves all production-side backfill features (verifiable by Sub-Deploy 4.5 verification queries)
 - [ ] Full Playwright suite runs green against production
