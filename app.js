@@ -862,7 +862,9 @@ const Subscriptions = {
 // Called from mylist.html — requires the user's active session token
 // so the Edge Function can verify the request is authenticated.
 const MyList = {
-  async sendConfirmation(userId, sessionToken) {
+  async sendConfirmation(userId, sessionToken, weekStart, weekEnd) {
+    const payload = { user_id: userId };
+    if (weekStart && weekEnd) { payload.week_start = weekStart; payload.week_end = weekEnd; }
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-my-list`, {
       method: 'POST',
       headers: {
@@ -870,7 +872,7 @@ const MyList = {
         'Authorization': `Bearer ${sessionToken}`,
         'apikey':        SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ user_id: userId }),
+      body: JSON.stringify(payload),
     });
     const result = await resp.json().catch(() => ({}));
     if (!resp.ok) return { error: result.error || `HTTP ${resp.status}` };

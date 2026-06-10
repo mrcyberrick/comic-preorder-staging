@@ -26,9 +26,13 @@ Deno.serve(async (req) => {
 
     // Parse body
     let user_id: string
+    let week_start: string | undefined
+    let week_end: string | undefined
     try {
       const body = await req.json()
       user_id = body.user_id || ''
+      week_start = body.week_start || undefined
+      week_end = body.week_end || undefined
     } catch {
       return Response.json({ error: 'Invalid body' }, { status: 400, headers: corsHeaders })
     }
@@ -89,23 +93,26 @@ Deno.serve(async (req) => {
     const fullName = profiles?.[0]?.full_name || 'Valued Customer'
     const callerTenantId = profiles?.[0]?.tenant_id || FOUNDING_TENANT_ID
 
-    // Get the current catalog month scoped to the caller's tenant
-    const tenantFilter = `&tenant_id=eq.${callerTenantId}`
-    const monthRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/catalog?select=catalog_month&order=catalog_month.desc&limit=1` + tenantFilter,
-      { headers: authHeaders }
-    )
-    const monthData = await monthRes.json()
-    const catalogMonth = monthData?.[0]?.catalog_month || ''
+    // Get catalog month (skipped when week range provided — week mode filters by on_sale_date instead)
+    let catalogMonth = ''
+    let monthLabel = ''
+    if (!week_start || !week_end) {
+      const tenantFilter = `&tenant_id=eq.${callerTenantId}`
+      const monthRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/catalog?select=catalog_month&order=catalog_month.desc&limit=1` + tenantFilter,
+        { headers: authHeaders }
+      )
+      const monthData = await monthRes.json()
+      catalogMonth = monthData?.[0]?.catalog_month || ''
 
-    if (!catalogMonth) {
-      return Response.json({ error: 'No active catalog month' }, { status: 404, headers: corsHeaders })
+      if (!catalogMonth) {
+        return Response.json({ error: 'No active catalog month' }, { status: 404, headers: corsHeaders })
+      }
+
+      const [my, mm] = catalogMonth.split('-').map(Number)
+      monthLabel = new Date(my, mm - 1, 1)
+        .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     }
-
-    // Format month label e.g. "2026-04" → "April 2026"
-    const [my, mm] = catalogMonth.split('-').map(Number)
-    const monthLabel = new Date(my, mm - 1, 1)
-      .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
     // Fetch the user's preorders for the current catalog month, scoped to their tenant
     const preordersRes = await fetch(
@@ -114,9 +121,15 @@ Deno.serve(async (req) => {
     )
     const preorders = await preordersRes.json()
 
-    // Filter to current month and sort by publisher then title
+    // Filter to this week's on_sale_date range (admin "books are in") or current month (self-serve)
     const items = (preorders || [])
-      .filter((p: any) => p.catalog?.catalog_month === catalogMonth)
+      .filter((p: any) => {
+        if (week_start && week_end) {
+          const onSale = p.catalog?.on_sale_date || ''
+          return onSale >= week_start && onSale <= week_end
+        }
+        return p.catalog?.catalog_month === catalogMonth
+      })
       .sort((a: any, b: any) => {
         const pub = (a.catalog?.publisher || '').localeCompare(b.catalog?.publisher || '')
         if (pub !== 0) return pub
@@ -124,7 +137,8 @@ Deno.serve(async (req) => {
       })
 
     if (!items.length) {
-      return Response.json({ error: 'No reservations found for current month' }, { status: 404, headers: corsHeaders })
+      const noItemsMsg = (week_start && week_end) ? 'No reservations arriving this week' : 'No reservations found for current month'
+      return Response.json({ error: noItemsMsg }, { status: 404, headers: corsHeaders })
     }
 
     // Calculate totals
@@ -132,8 +146,13 @@ Deno.serve(async (req) => {
     const totalValue = items.reduce((s: number, p: any) =>
       s + ((parseFloat(p.catalog?.price_usd) || 0) * (p.quantity || 1)), 0)
 
-    // Build email subject with dynamic month
-    const subject = `Your ${monthLabel} pull list — Ray & Judy's Book Stop`
+    const subject = (week_start && week_end)
+      ? `Your books are in — Ray & Judy's Book Stop`
+      : `Your ${monthLabel} pull list — Ray & Judy's Book Stop`
+
+    const emailIntro = (week_start && week_end)
+      ? 'These items from your pull list are in and ready to pick up.'
+      : `Here's your pull list for <strong style="color:#fff">${monthLabel}</strong>. We'll have everything ready for you when it arrives.`
 
     // Build item rows for the email table
     const itemRows = items.map((p: any) => {
@@ -178,8 +197,7 @@ Deno.serve(async (req) => {
   <div style="padding:28px 32px">
     <h2 style="margin:0 0 6px;font-size:1rem;color:#fff">Hi ${escHtml(fullName)},</h2>
     <p style="color:#ccc;line-height:1.7;margin:0 0 24px;font-size:0.88rem">
-      Here's your pull list for <strong style="color:#fff">${monthLabel}</strong>.
-      We'll have everything ready for you when it arrives.
+      ${emailIntro}
     </p>
 
     <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif">
