@@ -9,11 +9,11 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 **Active phase:** Phase 4 — Production Migration
 **Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
-**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29; 4.2 closed 2026-05-30; 4.3 closed 2026-05-31; 4.4 closed 2026-05-31; 4.5 closed 2026-05-31; 4.6 closed 2026-05-31
-**Active sub-deploy:** 4.7 — Post-cutover soak observation
+**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29; 4.2 closed 2026-05-30; 4.3 closed 2026-05-31; 4.4 closed 2026-05-31; 4.5 closed 2026-05-31; 4.6 closed 2026-05-31; 4.7 closed 2026-06-10
+**Active sub-deploy:** 4.8 — Post-cutover housekeeping (F55/F56/F57 + structural-diff re-confirm + F61 modal)
 **Plan (Phase 4 parent):** `docs/phase-4-production-migration.md`
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
-**Last completed sub-deploy:** 4.6 — see `docs/phase-4.6-edge-functions-cutover.md`
+**Last completed sub-deploy:** 4.7 — see `docs/phase-4.7-post-cutover-soak.md`
 **Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md`, `docs/pre-multitenancy-state.md` (§ 2/§ 4 superseded by `docs/production-baseline-2026-05-28.md`)
@@ -25,7 +25,7 @@ comic pre-order system. **Read this file in full at the start of every session.*
 - Per-tenant branding rendering
 - Pre-Phase-4 hardening sub-deploy: **complete (4.1, 2026-05-29)** — F16/F34 deep audit, Finding E grants tightening, `claim_paper_account` dropped, `upsertShipment` and `buildCatalogIdMap` scoped, F17 fixed, Edge Function auth gaps closed (F47/F50/F51/F54), 3-day canary soak clean
 
-**Phase 4 next milestones:** 4.3 planning session (re-scope against live production baseline + `is_admin()` body) → continue cutover window (4.3–4.6) → 4.7 soak.
+**Phase 4 next milestones:** 4.8 execution (H1–H5: F55 analytics views, F56/F57 function drops, structural-diff re-confirm, F61 confirm-modal) → Phase-4-level completion criteria audit → Phase 5.
 **Phase 5 (queued, not started):** Second-tenant onboarding — hosting migration, branding rendering, slug→id routing, self-service signup.
 
 Before proposing any work, read the active phase docs and confirm the proposed

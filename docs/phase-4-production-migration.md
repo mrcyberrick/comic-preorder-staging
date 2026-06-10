@@ -1,6 +1,6 @@
 # Phase 4 — Production Migration
 
-**Status:** Planning — parent-plan kickoff 2026-05-24; sub-deploy 4.0 plan pending
+**Status:** In progress — 4.0–4.7 complete (4.7 soak closed 2026-06-10); active sub-deploy 4.8 (post-cutover housekeeping, planning)
 **Branch base:** `staging` (4.0, 4.1) → `feat/phase-4-prod-cutover` off `main` in the production repo (4.2–4.7)
 **Started:** 2026-05-24 (planning)
 **Estimated total duration:** 4–6 weekend sessions for 4.0/4.1 staging prep; one coordinated weekend window for 4.2–4.6 cutover; one calendar week of post-cutover soak (4.7)
@@ -36,7 +36,7 @@ Hosting migration (GitHub Pages → Cloudflare/Vercel), per-tenant branding rend
 
 ## Sub-Deploys
 
-Phase 4 is broken into **seven sub-deploys**. The first two (4.0, 4.1) ship on staging in normal-cadence weekend sessions. Sub-deploys 4.2–4.6 ship inside a single coordinated weekend cutover window. 4.7 is the post-cutover soak observation period. Each plan file is written **after** the previous sub-deploy completes, per the Phase 3 pattern.
+Phase 4 is broken into **eight sub-deploys**. The first two (4.0, 4.1) ship on staging in normal-cadence weekend sessions. Sub-deploys 4.2–4.6 ship inside a single coordinated weekend cutover window. 4.7 is the post-cutover soak observation period. 4.8 is the post-cutover housekeeping pass (added at 4.7 closeout per `phase-4.6-edge-functions-cutover.md` Appendix A). Each plan file is written **after** the previous sub-deploy completes, per the Phase 3 pattern.
 
 | #   | Title                                                                    | Plan                                                  | Status   | Completed |
 |-----|--------------------------------------------------------------------------|-------------------------------------------------------|----------|-----------|
@@ -47,7 +47,8 @@ Phase 4 is broken into **seven sub-deploys**. The first two (4.0, 4.1) ship on s
 | 4.4 | Prod schema — RLS + functions + analytics views + default removal        | `phase-4.4-prod-schema-rls.md`                        | Complete | 2026-05-31 |
 | 4.5 | Prod `import.js` — bidirectional merge with staging                      | `phase-4.5-prod-import-merge.md`                      | Complete | 2026-05-31 |
 | 4.6 | Edge Functions redeploy + first prod import dry-run + smoke + maintenance off | `phase-4.6-edge-functions-cutover.md`            | Complete | 2026-05-31 |
-| 4.7 | One-week post-cutover soak observation                                   | `phase-4.7-post-cutover-soak.md`                      | Planning | —         |
+| 4.7 | One-week post-cutover soak observation                                   | `phase-4.7-post-cutover-soak.md`                      | Complete | 2026-06-10 |
+| 4.8 | Post-cutover housekeeping — F55/F56/F57 structural-diff clear + F61 modal | `phase-4.8-post-cutover-housekeeping.md`              | Planning | —         |
 
 ### Status values
 
@@ -285,4 +286,4 @@ Hot-patch via the same Discovered During Soak pattern Phase 3 used. Document inl
 
 ---
 
-**Last updated:** 2026-05-26 (path-2 pressure-test revisions: cutover-window import, canary respin, merge strategy, UUID pre-flight, dry-run gate, Phase 5 stub)
+**Last updated:** 2026-06-10 (4.7 soak closed; 4.8 post-cutover housekeeping row added at Planning; stale header Status line reconciled)

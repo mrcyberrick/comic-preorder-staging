@@ -1,6 +1,6 @@
 # Phase 4.7 — Post-Cutover Soak Observation
 
-**Status:** Planning — plan/runbook written 2026-06-02. Flip parent-plan row 4.7 → **Complete** at closeout (§ 6).
+**Status:** **Complete** — closed 2026-06-10 (§ 6 closeout; soak 2026-05-31 → 2026-06-10, 10 calendar days). Plan/runbook written 2026-06-02.
 **Parent plan:** `docs/phase-4-production-migration.md` (sub-deploy row 4.7; In-Scope lines 161–162)
 **Predecessor:** `docs/phase-4.6-edge-functions-cutover.md` — closed 2026-05-31 (maintenance off, first prod import, tags pushed). Appendix A defines the **4.8** housekeeping pass that follows this soak.
 **Branches:** Doc-only edits this sub-deploy (soak ledger, finding files, pointer advances) → committed directly to `staging`. **No app-code, schema, or `main`-bound changes in 4.7.**
@@ -238,18 +238,18 @@ Use `docs/phase-4.1-canary-procedure.md` § *Teardown* verbatim, substituting th
 > **STOP if:** any canary row remains — the Merge Gate requires a **live SELECT returning zero rows**, not "we ran the teardown." Re-run teardown until zero.
 
 ### 6.2 Phase 4.7 completion criteria (all must be checked)
-- [ ] Seven calendar days elapsed since maintenance-off (date ≥ 2026-06-08)
-- [ ] Soak Ledger (§ 10) complete for every day 2026-05-31 → close; no unresolved `red`
-- [ ] First post-recovery Tuesday import (§ 3) ran clean: exit 0, all `with_tid == total`, zero foreign/null tenant_id, no schema errors
-- [ ] F59-class signal absent across the soak: new customer writes landed with founding tenant_id on active days; no silent write-failure pattern
-- [ ] No open customer-reported issue
-- [ ] Edge Function + Auth logs showed no new error class across the soak
-- [ ] Staging canary torn down — live SELECT returns zero canary rows (§ 6.1)
-- [ ] Any F60+ soak finding filed and either resolved or explicitly deferred with a named owner
-- [ ] F59 recovery dump (`backups/pulllist/dump-postgres-202605302059.backup`) retention decided (§ 6.4)
-- [ ] Parent Sub-Deploys table row 4.7 → **Complete** + close date
-- [ ] `CLAUDE.md` § Current Migration Phase active sub-deploy pointer advanced to **4.8**
-- [ ] Parent Sub-Deploys table gains a **4.8** row (`Planning`, plan = `phase-4.8-post-cutover-housekeeping.md`) — the 4.8 *plan file itself is written in the next session* from Appendix A, per the "plan written after previous closes" convention
+- [x] Seven calendar days elapsed since maintenance-off (date ≥ 2026-06-08) — closed 2026-06-10, 10 calendar days elapsed
+- [x] Soak Ledger (§ 10) complete for every day 2026-05-31 → close; no unresolved `red` — 06-03→06-09 retrospective fill confirmed clean by Rick 2026-06-10
+- [x] First post-recovery Tuesday import (§ 3) ran clean: exit 0, all `with_tid == total`, zero foreign/null tenant_id, no schema errors — 2026-06-02, June 2026 month roll, 2333 records
+- [x] F59-class signal absent across the soak: new customer writes landed with founding tenant_id on active days; no silent write-failure pattern — 06-02: 49 new preorders, 49 founding / 0 bad
+- [x] No open customer-reported issue — F61 (Brave/iOS confirm) explicitly deferred-with-owner to 4.8 per § 5 step 4(b); low severity, not gate-holding
+- [x] Edge Function + Auth logs showed no new error class across the soak — F60 (notify-customers service-role auth) and F62 (send-my-list admin 403) both surfaced, fixed, and redeployed during the soak; neither left open
+- [x] Staging canary torn down — live SELECT returns zero canary rows (§ 6.1) — verified 2026-06-10: founding-only grouping (46 profiles), `canary_tenant_rows = 0`
+- [x] Any F60+ soak finding filed and either resolved or explicitly deferred with a named owner — F60 resolved; F61 deferred → 4.8 (owner: Rick); F62 resolved
+- [x] F59 recovery dump (`backups/pulllist/dump-postgres-202605302059.backup`) retention decided (§ 6.4) — **keep** (default; recorded in ledger)
+- [x] Parent Sub-Deploys table row 4.7 → **Complete** + close date
+- [x] `CLAUDE.md` § Current Migration Phase active sub-deploy pointer advanced to **4.8**
+- [x] Parent Sub-Deploys table gains a **4.8** row (`Planning`, plan = `phase-4.8-post-cutover-housekeeping.md`) — the 4.8 *plan file itself is written in the next session* from Appendix A, per the "plan written after previous closes" convention — *(4.8 plan written same session, 2026-06-10, immediately after this closeout)*
 
 > **4.7 closes the soak only.** Phase 4 overall (`phase-4-production-migration.md` § Phase Completion Criteria) stays open pending 4.8 (clears F55/F56/F57 + structural diff) and the remaining phase-level items (post-cutover dump stored, `pre-multitenancy-state.md` Phase 4 notes, Phase 5 stub). Do not tick Phase-4-level boxes here.
 
@@ -266,6 +266,8 @@ docs: close Phase 4.7 (post-cutover soak); advance pointer to 4.8 housekeeping
 
 ### 6.4 F59 recovery-dump retention
 The F59 source dump was retained "until soak closes." At closeout, **either** archive it permanently alongside the 2026-04-29 `pre-multitenancy-v1` snapshot and the post-cutover dump (parent completion criterion — recovery anchors), **or** confirm a post-cutover dump already supersedes it before removing. Record the decision in the ledger. Default: **keep** — disk is cheap, store-wide-loss recovery evidence is not.
+
+> **Decision (2026-06-10, closeout):** **KEEP.** `backups/pulllist/dump-postgres-202605302059.backup` retained permanently as a recovery anchor alongside the 2026-04-29 `pre-multitenancy-v1` snapshot. Recorded in the ledger closeout row.
 
 ---
 
@@ -316,7 +318,8 @@ The entire soak is **past maintenance-off** ⇒ parent § Rollback **Tier-3** go
 | 2026-06-08 (close eval) | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). Date gate reached; closeout § 6 deferred to 2026-06-10 session. |
 | 2026-06-09 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
 | 2026-06-10 | | | | EF: F62 discovered (send-my-list 403 on admin email); fixed + redeployed | F62 (send-my-list admin 403, resolved) | — | watch→resolved | Admin "This Week" send-email button broken since F54 fix; admin bypass added; redeployed to prod. |
+| 2026-06-10 (closeout) | — | — | — | — | None | — | green | **§ 6 closeout.** Canary teardown verified: founding-only `user_profiles` grouping (46 profiles), `canary_tenant_rows = 0`. F59 dump retention: **KEEP** (§ 6.4). All § 6.2 criteria ticked. **4.7 closed.** |
 
 ---
 
-**Last updated:** 2026-06-10 (F62 discovered and fixed — send-my-list admin identity-check bypass; redeployment required).
+**Last updated:** 2026-06-10 (§ 6 closeout — 4.7 Complete; canary torn down; F59 dump kept; pointer advanced to 4.8).
