@@ -1243,7 +1243,6 @@
           btn.innerHTML = '✉&nbsp;Email';
           return;
         }
-        const { start: weekStart, end: weekEnd } = DateUtils.weekRange(weekAnchorMonday);
         const { error } = await MyList.sendConfirmation(uid, token, weekStart, weekEnd);
         if (error) {
           toast('Failed to send: ' + (error.message || error), 'error');
