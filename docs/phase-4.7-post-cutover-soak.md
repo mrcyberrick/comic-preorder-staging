@@ -18,7 +18,7 @@
 - `docs/phase-4-production-migration.md` — §§ *Sub-Deploys* (row 4.7), *In Scope 4.6/4.7* (lines 161–162), *Phase Completion Criteria*, *Discovered During Soak*, *Rollback Decision Tree* (Tier-3 = post-maintenance-off, forward-fix only).
 - `docs/phase-4.6-edge-functions-cutover.md` — § 14 deploy log (cutover snapshot counts to diff against); **Appendix A** (the 4.8 housekeeping pass — *catalogued, NOT executed in 4.7*).
 - `docs/phase-4.1-canary-procedure.md` — the spin-up + teardown template reused verbatim in § 2 / § 6.1.
-- `docs/technical-reference.md` § 13 — findings index. **Highest filed = F59** (closed 2026-06-01, cutover-window reservation loss, recovered). **Next free ID = F60.** Do not assign new IDs unless a genuine new soak defect surfaces.
+- `docs/technical-reference.md` § 13 — findings index. **Highest filed = F62** (closed 2026-06-10, send-my-list admin 403). **Next free ID = F63.** Do not assign new IDs unless a genuine new soak defect surfaces.
 - `CLAUDE.md` — § *Current Migration Phase* (active sub-deploy = 4.7), § *Definition of Done — Merge Gate*, § *Smoke Test Suite*, deployment workflow (F59 post-merge diff assertion + write-smoke).
 
 ### 0.2 Files Claude must NOT touch
@@ -292,7 +292,7 @@ The entire soak is **past maintenance-off** ⇒ parent § Rollback **Tier-3** go
 - Parent: `docs/phase-4-production-migration.md` — In-Scope 4.7 (161–162), Completion Criteria (184–202), Discovered During Soak (224–229), Rollback Tier-3 (255–264).
 - `docs/phase-4.6-edge-functions-cutover.md` — § 14 deploy log (cutover baseline counts); **Appendix A** (4.8 scope, not executed here).
 - `docs/phase-4.1-canary-procedure.md` — canary spin-up (§ 2) + teardown (§ 6.1) template.
-- `docs/technical-reference.md` § 13 — F59 (closed); next free **F60**.
+- `docs/technical-reference.md` § 13 — F59–F62 (all closed); next free **F63**.
 - `CLAUDE.md` — Merge Gate (soak-day discipline, zero-row teardown verify), Smoke Test Suite, deployment workflow (F59 prevention).
 - Prod project ref `plgegklqtdjxeglvyjte`; prod founding UUID in `scripts/phase-4-prod-tenant-uuid.txt` (gitignored). Staging ref `puoaiyezsreowpwxzxhj`; staging founding `72e29f67-39f7-42bc-a4d5-d6f992f9d790`.
 
@@ -314,7 +314,8 @@ The entire soak is **past maintenance-off** ⇒ parent § Rollback **Tier-3** go
 | 2026-06-06 | | | | | | | | |
 | 2026-06-07 | | | | | | | | |
 | 2026-06-08 (close eval) | | | | | | | | Closeout § 6 if gate met. |
+| 2026-06-10 | | | | EF: F62 discovered (send-my-list 403 on admin email); fixed + redeployed | F62 (send-my-list admin 403, resolved) | — | watch→resolved | Admin "This Week" send-email button broken since F54 fix; admin bypass added; redeployed to prod. |
 
 ---
 
-**Last updated:** 2026-06-02 (§§ 2–4 executed; canary respun; first post-recovery import; F60 resolved; F61 →4.8; ledger row filled).
+**Last updated:** 2026-06-10 (F62 discovered and fixed — send-my-list admin identity-check bypass; redeployment required).

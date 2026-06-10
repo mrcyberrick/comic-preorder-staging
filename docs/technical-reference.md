@@ -2100,7 +2100,7 @@ Surfaced during the 4.4 cutover sub-deploy (2026-05-31).
 - **Where:** staging RLS on `user_profiles`; `app.js` `Users.suspend` and `Users.deleteProfile`; `admin.html` line 1608.
 - **Fix:** audit staging admin Users tab (suspend + delete flows) to determine actual code path; if authenticated-key, add the missing admin-write policy to staging; if service-role EF, document as the architectural intent and remove `admins manage tenant profiles` from prod to match.
 
-### Phase 4.7 findings (F59–F61)
+### Phase 4.7 findings (F59–F62)
 
 Surfaced during the 4.7 soak (2026-06-01 / 2026-06-02).
 
@@ -2120,6 +2120,13 @@ Surfaced during the 4.7 soak (2026-06-01 / 2026-06-02).
 - **Also fixed:** platform JWT verification for `notify-customers` was ON (inconsistent with project pattern); left ON because it makes the role-claim check safe.
 - **Where:** `supabase/functions/notify-customers/index.ts` lines 26–44; `C:\Users\richa\supabase\functions\notify-customers\index.ts` (CLI deploy source).
 - **Commits:** `2488c8c` (key-comparison attempt), `2e924d8` (JWT role-claim approach, the effective fix).
+
+#### F62 — `send-my-list` F54 identity check blocks admin "books are in" email (resolved)
+- **Status:** fixed 2026-06-10 (Phase 4.7 soak, separate commit).
+- **Severity:** medium — admin "This Week" bagging tab send-email button returned 403 for all customers; admin workaround was none.
+- **Root cause:** F54 fix added `callerUser.id !== user_id → 403`. When an admin sends the email from `admin.html`, the bearer token is the admin's session but `user_id` is the target customer's id — the check always trips.
+- **Fix:** `send-my-list/index.ts` — on identity mismatch, fetch caller's `user_profiles.is_admin`; allow if `true`, otherwise retain 403. Own-list path (mylist.html) is unchanged.
+- **Where:** `supabase/functions/send-my-list/index.ts` lines 48–68.
 
 #### F61 — Brave/iOS suppresses `window.confirm()` on mylist.html Remove button (deferred → 4.8)
 - **Status:** open — deferred to 4.8 post-cutover housekeeping.

@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Unauthorized' }, { status: 401, headers: corsHeaders })
     }
 
-    // Verify the caller's JWT and confirm they are requesting their own list.
+    // Verify the caller's JWT and confirm they are requesting their own list or are an admin.
     const callerRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
       headers: { Authorization: authHeader, apikey: SUPABASE_ANON }
     })
@@ -54,7 +54,16 @@ Deno.serve(async (req) => {
     }
     const callerUser = await callerRes.json()
     if (callerUser.id !== user_id) {
-      return Response.json({ error: 'Forbidden — can only request your own list' }, { status: 403, headers: corsHeaders })
+      // Not the user themselves — allow if caller is an admin (F62 admin-bypass)
+      const callerProfileRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_profiles?id=eq.${callerUser.id}&select=is_admin&limit=1`,
+        { headers: authHeaders }
+      )
+      const callerProfiles = await callerProfileRes.json()
+      const isAdmin = callerProfiles?.[0]?.is_admin === true
+      if (!isAdmin) {
+        return Response.json({ error: 'Forbidden — can only request your own list' }, { status: 403, headers: corsHeaders })
+      }
     }
 
     // Fetch user email via the admin endpoint (service key required).
