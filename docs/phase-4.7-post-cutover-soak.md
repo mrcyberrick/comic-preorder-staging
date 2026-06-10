@@ -308,12 +308,13 @@ The entire soak is **past maintenance-off** ⇒ parent § Rollback **Tier-3** go
 | 2026-05-31 | — | — | — | — | — | exit 0; 2306/2306 catalog, 325/325 preorders, 486/486 shipment (4.6 § 14) | green | Maintenance off; first prod import clean (cutover). |
 | 2026-06-01 | — | — | — | — | F59 (330 lost reservations) | — | watch→resolved | F59 discovered **and recovered same window** (330 rows restored; Brian Moss ✓). Closed in § 13. |
 | 2026-06-02 | 49 (49/0) | 0 all tables | 64 | EF: clean; Auth: admin login + token activity only (Brave/iOS + Chrome) | F60 (notify auth, resolved); F61 (Brave/iOS confirm, →4.8) | June 2026 new month; 2333 records (1358L+975P); notify ✓ 8/0; 2 auto-reserves; shipment 41 rows; exit 0 | watch→resolved | Canary respun ✓; PRH catalog initially missing (wrong file, fixed on re-run); notify-customers auth fixed (F60 deployed); F61 filed →4.8. |
-| 2026-06-03 | | | | | | | | |
-| 2026-06-04 | | | | | | | | |
-| 2026-06-05 | | | | | | | | |
-| 2026-06-06 | | | | | | | | |
-| 2026-06-07 | | | | | | | | |
-| 2026-06-08 (close eval) | | | | | | | | Closeout § 6 if gate met. |
+| 2026-06-03 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
+| 2026-06-04 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
+| 2026-06-05 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
+| 2026-06-06 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
+| 2026-06-07 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
+| 2026-06-08 (close eval) | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). Date gate reached; closeout § 6 deferred to 2026-06-10 session. |
+| 2026-06-09 | — | — | — | — | None | — | green | No defects reported; retrospective fill (confirmed by Rick 2026-06-10). |
 | 2026-06-10 | | | | EF: F62 discovered (send-my-list 403 on admin email); fixed + redeployed | F62 (send-my-list admin 403, resolved) | — | watch→resolved | Admin "This Week" send-email button broken since F54 fix; admin bypass added; redeployed to prod. |
 
 ---
