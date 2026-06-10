@@ -281,6 +281,7 @@ Execution order: **H1 → H2 → H3 in one prod SQL Editor sitting → H4 diff �
 | 2026-06-10 | H2 — DROP claim_paper_account(uuid,uuid) | ✓ — zero rows on pg_proc verify | |
 | 2026-06-10 | H3 — DROP generate_invite_link(text,text) | ✓ — zero rows on pg_proc verify; invite flow verified working post-drop | |
 | 2026-06-10 | H4 — Structural diff re-confirm | F55 cleared; F58 confirmed (prod has admins manage tenant profiles ALL; staging lacks it); **unexpected:** F63 (13 staging policies missing TO authenticated) + F64 (8 pre-Phase-4 DDL divergences) filed; F19 is_admin() prod-only (pre-existing). Phase-4-level structural-diff criterion not tickable until F63/F64 assessed (next session). pg_policies paste: table 1 = staging ({public} roles), table 2 = prod ({authenticated} roles). | |
+| 2026-06-10 | H5 — F61: mylist confirm-modal | ✓ — staging commit `3c212ff`; prod promotion `92bf7dc`; staging verified on Brave Mobile; prod write-smoke passed | `mylist.html:1081` (unsubscribe guard) deferred per Rick → F65 filed |
 
 ---
 
