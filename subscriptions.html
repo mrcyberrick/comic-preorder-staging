@@ -180,6 +180,16 @@
       gap: 10px;
       flex-shrink: 0;
     }
+
+    /* ── Confirm Modal ────────────────────────────────────────── */
+    .confirm-modal {
+      max-width: 320px;
+      padding: 24px;
+      text-align: center;
+    }
+    .confirm-modal p { margin: 0 0 20px; font-size: 0.95rem; }
+    .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+    .confirm-actions .btn { min-width: 90px; }
   </style>
 </head>
 <body>
@@ -258,10 +268,44 @@
 
 <div id="toast-container"></div>
 
+<div class="modal-overlay" id="confirm-overlay">
+  <div class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirm-msg">
+    <p id="confirm-msg"></p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost"    id="confirm-cancel">Keep it</button>
+      <button class="btn btn-primary"  id="confirm-ok">Unsubscribe</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script src="app.js"></script>
 <script>
+function confirmDialog(message, okLabel = 'Unsubscribe') {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('confirm-overlay');
+    const msg     = document.getElementById('confirm-msg');
+    const btnOk   = document.getElementById('confirm-ok');
+    const btnCancel = document.getElementById('confirm-cancel');
+    msg.textContent = message;
+    btnOk.textContent = okLabel;
+    overlay.classList.add('open');
+    const close = result => {
+      overlay.classList.remove('open');
+      overlay.removeEventListener('click', onOverlay);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    };
+    const onOverlay = e => { if (e.target === overlay) close(false); };
+    const onKey     = e => { if (e.key === 'Escape') close(false); };
+    btnOk.onclick     = () => close(true);
+    btnCancel.onclick = () => close(false);
+    overlay.addEventListener('click', onOverlay);
+    document.addEventListener('keydown', onKey);
+  });
+}
+
 (async () => {
   const navData = await initNav();
   if (!navData) return;
@@ -416,7 +460,7 @@
     // Unsubscribe buttons
     container.querySelectorAll('.unsub-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!confirm(`Unsubscribe from "${btn.dataset.series}"?`)) return;
+        if (!(await confirmDialog(`Unsubscribe from "${btn.dataset.series}"?`))) return;
         btn.disabled = true;
         const targetUserId = AdminContext.resolveUserId(user.id);
         const { error } = await Subscriptions.unsubscribe(

@@ -1078,7 +1078,7 @@ function confirmDialog(message, okLabel = 'Remove') {
 
       document.querySelectorAll('.unsub-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!confirm(`Unsubscribe from "${btn.dataset.series}"?`)) return;
+          if (!(await confirmDialog(`Unsubscribe from "${btn.dataset.series}"?`, 'Unsubscribe'))) return;
           btn.disabled = true;
           const { error } = await Subscriptions.unsubscribe(
             targetUserId, btn.dataset.series, btn.dataset.distributor
