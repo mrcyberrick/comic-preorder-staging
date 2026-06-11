@@ -1,6 +1,6 @@
 # Phase 4 — Production Migration
 
-**Status:** In progress — 4.0–4.8 complete (4.8 housekeeping closed 2026-06-10); active: Phase 4 completion audit
+**Status:** **Complete** — 4.0–4.8 complete; completion audit closed 2026-06-10; all Phase Completion Criteria ticked
 **Branch base:** `staging` (4.0, 4.1) → `feat/phase-4-prod-cutover` off `main` in the production repo (4.2–4.7)
 **Started:** 2026-05-24 (planning)
 **Estimated total duration:** 4–6 weekend sessions for 4.0/4.1 staging prep; one coordinated weekend window for 4.2–4.6 cutover; one calendar week of post-cutover soak (4.7)
@@ -186,21 +186,21 @@ If something seems related but isn't on the IN scope list above, **stop and ask*
 
 Phase 4 is complete when **all** of the following are true:
 
-- [ ] All sub-deploys 4.0–4.7 in the Sub-Deploys table above marked Complete
-- [ ] Production schema mirrors post-Phase-3 staging schema (verifiable by structural diff: `pg_dump --schema-only` on each, normalize, compare) — F55 cleared 4.8 H1; **known intentional differences remaining:** F58 `user_profiles` policy (prod has `admins manage tenant profiles` ALL; staging lacks it); F19 `is_admin()` function prod-only (pre-existing deferred dead code); **open findings from 4.8 H4 diff requiring assessment:** F64 (8 pre-Phase-4 DDL divergences incl. FK target difference on `preorders`) — Phase 4 completion audit session
-- [ ] Production RLS policies match staging RLS policies for every tenant-scoped table (verifiable by `pg_policies` query diff) — **known intentional difference:** `admins manage tenant profiles` (ALL) on `user_profiles` retained on prod (Decision B / F58); **open finding from 4.8 H4:** F63 (13 staging policies missing `TO authenticated` — apply to `public` role instead of `authenticated`) — Phase 4 completion audit session
-- [ ] All production Edge Functions match staging Edge Functions at the cutover tag (verifiable by source diff against tagged commit)
-- [ ] Production `import.js` has all Phase 2 + 3.x staging patches **and** preserves all production-side backfill features (verifiable by Sub-Deploy 4.5 verification queries)
-- [ ] Full Playwright suite runs green against production
-- [ ] First real production import (4.6 part 2) completed inside the cutover window with all verification queries green
-- [ ] Subsequent Tuesday-cadence imports during the 4.7 soak week run cleanly with no schema-related errors
-- [ ] Production database row counts post-cutover match the pre-cutover snapshot (delta = customer-driven writes during the open window only — must be auditable)
-- [ ] One-week post-cutover soak (4.7) passes with no customer-reported issues
-- [ ] `CLAUDE.md` § Current Migration Phase updated to reflect Phase 4 complete and Phase 5 queued
-- [ ] Phase 5 entry stub created in `CLAUDE.md` § Current Migration Phase with status `Not started — Phase 4 must complete first` and a one-line scope ("Second-tenant onboarding: hosting migration, branding rendering, slug→id routing, self-service signup")
-- [ ] All sub-deploy plan files committed to `docs/`
-- [ ] `pre-multitenancy-state.md` updated with Phase 4 completion notes following the Phase 1 completion pattern
-- [ ] Recovery anchors documented: `phase-4-cutover-v1` (prod) and `phase-4-cutover-v1-staging` tags reachable; post-cutover DB dump stored alongside the 2026-04-29 snapshot
+- [x] All sub-deploys 4.0–4.7 in the Sub-Deploys table above marked Complete — done; 4.8 (added at 4.7 closeout) also Complete 2026-06-10
+- [x] Production schema mirrors post-Phase-3 staging schema (verifiable by structural diff: `pg_dump --schema-only` on each, normalize, compare) — F55 cleared 4.8 H1; **known intentional differences remaining:** F58 `user_profiles` policy (prod has `admins manage tenant profiles` ALL; staging lacks it); F19 `is_admin()` function prod-only (pre-existing deferred dead code) — *ticked 2026-06-10 (completion audit): F64's 8 pre-Phase-4 DDL divergences assessed per-item; none touches the migrated multi-tenant surface or blocks closure; reconciliation scheduled pre-Phase-5 (dispositions in `technical-reference.md` § 13 F64). F66 filed during the assessment (latent, unreachable today).*
+- [x] Production RLS policies match staging RLS policies for every tenant-scoped table (verifiable by `pg_policies` query diff) — **known intentional difference:** `admins manage tenant profiles` (ALL) on `user_profiles` retained on prod (Decision B / F58) — *ticked 2026-06-10 (completion audit): F63 assessed — prod is the correct (stricter) side; staging-only `TO authenticated` fix is safe and scheduled pre-Phase-5 (see § 13 F63).*
+- [x] All production Edge Functions match staging Edge Functions at the cutover tag (verifiable by source diff against tagged commit) — verified at 4.6 part 1; post-cutover EF changes during the soak (F60 `notify-customers`, F62 `send-my-list`) were committed to the repo and deployed to prod from repo source
+- [x] Production `import.js` has all Phase 2 + 3.x staging patches **and** preserves all production-side backfill features (verifiable by Sub-Deploy 4.5 verification queries) — 4.5 closed 2026-05-31, P1–P16 each verified
+- [x] Full Playwright suite runs green against production — 4.6 part 2, headed run, 2026-05-31
+- [x] First real production import (4.6 part 2) completed inside the cutover window with all verification queries green — 2026-05-31
+- [x] Subsequent Tuesday-cadence imports during the 4.7 soak week run cleanly with no schema-related errors — 2026-06-02 June month roll, 2333 records, exit 0, zero foreign/null tenant_id (4.7 closeout)
+- [x] Production database row counts post-cutover match the pre-cutover snapshot (delta = customer-driven writes during the open window only — must be auditable) — *audited with one documented exception: F59 (330 cutover-window reservations initially lost to a merge-base regression) — fully recovered 2026-06-01 from the 2026-05-30 dump with per-row audit trail; post-recovery deltas all customer-driven (4.7 ledger)*
+- [x] One-week post-cutover soak (4.7) passes with no customer-reported issues — closed 2026-06-10 after 10 calendar days; one customer-reported issue (F61 Brave/iOS confirm) was deferred-with-owner per the 4.7 gate and resolved in 4.8 H5
+- [x] `CLAUDE.md` § Current Migration Phase updated to reflect Phase 4 complete and Phase 5 queued — 2026-06-10 (completion audit)
+- [x] Phase 5 entry stub created in `CLAUDE.md` § Current Migration Phase with status `Not started — Phase 4 must complete first` and a one-line scope ("Second-tenant onboarding: hosting migration, branding rendering, slug→id routing, self-service signup") — present in `CLAUDE.md`; full stub doc created at `docs/phase-5-second-tenant-onboarding.md` (2026-06-10)
+- [x] All sub-deploy plan files committed to `docs/` — verified 2026-06-10: 4.0–4.8 plans + parent all tracked
+- [x] `pre-multitenancy-state.md` updated with Phase 4 completion notes following the Phase 1 completion pattern — 2026-06-10 (completion audit); § 2/§ 4 also annotated as superseded by `production-baseline-2026-05-28.md`
+- [x] Recovery anchors documented: `phase-4-cutover-v1` (prod) and `phase-4-cutover-v1-staging` tags reachable; post-cutover DB dump stored alongside the 2026-04-29 snapshot — tags verified on remotes 2026-06-10 (`-staging` tag pushed to the `staging` remote at the audit); full data dumps of both envs taken 2026-06-10 and stored in `backups\2026-06-10-phase-4-close\` (see `pre-multitenancy-state.md` § Phase 4 Completion for the anchor table)
 
 ---
 
@@ -286,4 +286,4 @@ Hot-patch via the same Discovered During Soak pattern Phase 3 used. Document inl
 
 ---
 
-**Last updated:** 2026-06-10 (4.8 housekeeping closed; row 4.8 → Complete; pointer advanced to Phase 4 completion audit)
+**Last updated:** 2026-06-10 (Phase 4 completion audit closed — all completion criteria ticked; F63/F64 assessed, F66 filed; recovery anchors verified and stored; Phase 4 **Complete**)

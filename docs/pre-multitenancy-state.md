@@ -191,3 +191,46 @@ Affected functions (old 2-param signatures removed):
 All three now require p_tenant_id uuid as first argument.
 Do not run the staging import until Phase 2 is complete, or patch the
 three RPC calls in import-staging.js manually as a stopgap.
+
+---
+
+## Phase 4 Completion — 2026-06-10
+
+Status: Complete. Production migrated to post-Phase-3 multi-tenant parity
+with staging. Sub-deploys 4.0–4.8 plus the completion audit are closed —
+see `phase-4-production-migration.md` for the sub-deploy index and ticked
+completion criteria.
+
+### Founding Tenant (production)
+- id: generated 2026-05-30 during the 4.2 pre-flight; recorded in the local
+  scratch file `catalogs\scripts\phase-4-prod-tenant-uuid.txt` (gitignored —
+  deliberately never committed)
+- Owner admin: `734bfd7e-23a6-4c23-ba35-1f64843603c0` ("Book Stop")
+
+### Recovery Anchors (Phase 4 close)
+
+| Asset | Location | Notes |
+|---|---|---|
+| Production code tag | `phase-4-cutover-v1` | On `origin`; created at 4.6 closeout |
+| Staging code tag | `phase-4-cutover-v1-staging` | On `origin` and `staging` remotes (pushed to `staging` remote 2026-06-10 at the completion audit) |
+| Production full DB dump | `OneDrive\...\backups\2026-06-10-phase-4-close\backup-prod-phase-4-close-20260610.sql` | 12.6 MB; taken 2026-06-10 20:41; all 10 tables with data; `dump complete` footer verified. Copy of `catalogs\scripts\schema-prod-full.sql` (original retained; "schema-" prefix is a misnomer — it is a full data dump) |
+| Staging full DB dump | `...\2026-06-10-phase-4-close\backup-staging-phase-4-close-20260610.sql` | 9.0 MB; taken 2026-06-10 20:43; same provenance (`schema-staging-full.sql`) |
+| Schema-only pair | `...\2026-06-10-phase-4-close\schema-only-prod-20260610.sql`, `schema-only-staging-20260610.sql` | Structural snapshots at Phase 4 close (post-4.8 drops) |
+| Mid-window dumps (retained) | `backups\pulllist\dump-postgres-202605302059.backup`, `dump-postgres-202606020906.backup` | 2026-05-30 dump is the F59 recovery source (keep — decided at 4.7 closeout) |
+
+### Notable Events
+- **F59:** 330 customer reservations failed to persist during the cutover
+  window (merge-base regression in PR #49); fully recovered 2026-06-01 from
+  the 2026-05-30 dump. Prevention added to the deployment workflow.
+- **F60 / F61 / F62:** surfaced during the 4.7 soak; all resolved
+  (notify-customers service-role auth; Brave/iOS confirm modal; send-my-list
+  admin 403).
+- **4.8 housekeeping:** 5 dead `analytics_*` views (F55) and 2 dead functions
+  (F56 `claim_paper_account`, F57 `generate_invite_link`) dropped from prod.
+
+### Open Findings at Phase 4 Close
+F58 (intentional prod divergence, staging audit pending), F63 and F64
+(assessed at the completion audit — no Phase 4 blocker; reconciliation
+scheduled pre-Phase-5), F65 (deferred F61 sibling), F66 (latent, unreachable
+today). Dispositions in `technical-reference.md` § 13; carry-forward list in
+`phase-5-second-tenant-onboarding.md`.

@@ -7,26 +7,19 @@ comic pre-order system. **Read this file in full at the start of every session.*
 
 ## 🚨 Current Migration Phase
 
-**Active phase:** Phase 4 — Production Migration
+**Active phase:** None — Phase 4 complete 2026-06-10; Phase 5 queued (parent plan not yet written)
 **Phase 3 status:** Complete — 3.1–3.7 closed 2026-05-13; 3.8 hardening closed 2026-05-15 (one-day soak clean)
-**Phase 4 status:** Active — parent plan written 2026-05-24; 4.0 closed 2026-05-26; 4.1 closed 2026-05-29; 4.2 closed 2026-05-30; 4.3 closed 2026-05-31; 4.4 closed 2026-05-31; 4.5 closed 2026-05-31; 4.6 closed 2026-05-31; 4.7 closed 2026-06-10; 4.8 closed 2026-06-10
-**Active sub-deploy:** Phase 4 completion audit (dump recovery anchor, `pre-multitenancy-state.md` Phase 4 notes, F63/F64 assessment, parent criteria tick, Phase 5 stub)
+**Phase 4 status:** **Complete** — 4.0–4.8 closed 2026-05-26 → 2026-06-10; completion audit closed 2026-06-10 (all Phase Completion Criteria ticked; recovery anchors verified — see `pre-multitenancy-state.md` § Phase 4 Completion)
+**Active sub-deploy:** None — next work item is the Phase 5 parent plan (stub: `docs/phase-5-second-tenant-onboarding.md`)
 **Plan (Phase 4 parent):** `docs/phase-4-production-migration.md`
 **Plan (Phase 3 parent):** `docs/phase-3-tenant-resolution.md`
-**Last completed sub-deploy:** 4.8 — see `docs/phase-4.8-post-cutover-housekeeping.md`
-**Last completed phase:** Phase 3 — all sub-deploys 3.1–3.8 complete
+**Last completed sub-deploy:** Phase 4 completion audit (2026-06-10) — F63/F64 assessed, F66 filed, anchors stored
+**Last completed phase:** Phase 4 — production at post-Phase-3 staging parity; all sub-deploys 4.0–4.8 complete
 **Phase 2 reference:** `docs/phase-2-completion.md`
 **Phase 1 reference:** `docs/phase-1-schema-migration.md`, `docs/pre-multitenancy-state.md` (§ 2/§ 4 superseded by `docs/production-baseline-2026-05-28.md`)
 
-**Phase 4 scope (in progress — see `docs/phase-4-production-migration.md` for sub-deploy index):**
-- Production database migration (apply Phase 1–3 schema to prod)
-- Update `import.js` (production) with all Phase 2–3.8 patches (see § Known Out-of-Scope Items)
-- Hosting migration (GitHub Pages → Cloudflare Pages or Vercel) for subdomain routing
-- Per-tenant branding rendering
-- Pre-Phase-4 hardening sub-deploy: **complete (4.1, 2026-05-29)** — F16/F34 deep audit, Finding E grants tightening, `claim_paper_account` dropped, `upsertShipment` and `buildCatalogIdMap` scoped, F17 fixed, Edge Function auth gaps closed (F47/F50/F51/F54), 3-day canary soak clean
-
-**Phase 4 next milestones:** Phase 4 completion audit (dump recovery anchor, F63/F64 assessment, `pre-multitenancy-state.md` Phase 4 notes, parent criteria tick, Phase 5 stub) → Phase 5.
-**Phase 5 (queued, not started):** Second-tenant onboarding — hosting migration, branding rendering, slug→id routing, self-service signup.
+**Phase 5 (queued, not started — Phase 4 complete, so unblocked):** Second-tenant onboarding — hosting migration (GitHub Pages → Cloudflare/Vercel), per-tenant branding rendering, slug→id routing RPC, self-service signup. Stub with scope + carry-forward findings: `docs/phase-5-second-tenant-onboarding.md`. First Phase 5 session writes the parent plan.
+**Open findings carried into Phase 5 planning:** F58 (staging admin-write policy audit), F63 (staging `TO authenticated` DDL — assessed safe), F64 (pre-Phase-4 DDL divergences — per-item dispositions in `technical-reference.md` § 13), F65 (subscriptions.html confirm modal), F66 (`delete_dropped_catalog_items` guard — latent).
 
 Before proposing any work, read the active phase docs and confirm the proposed
 change is in scope. **If something seems related but isn't on the IN scope list
@@ -510,7 +503,9 @@ approval.
 ### Deferred — post-Phase-4 housekeeping
 - **Vestigial `settings.maintenance_mode` row** on production — nothing reads it;
   drop post-cutover
-- **`pre-multitenancy-state.md` § 2/§ 4 annotation** — point at production baseline doc once written for 4.2
+- **F63/F64 reconciliation + F66 guard fix** — assessed at the Phase 4
+  completion audit (2026-06-10); dispositions in `technical-reference.md` § 13;
+  schedule as pre-Phase-5 housekeeping
 
 If a session needs to touch any of the above, **stop and confirm**.
 
