@@ -624,6 +624,7 @@ Order inside this step is deliberate: **guard on staging → guard on prod → p
 | Date | Step | Result | Notes |
 |---|---|---|---|
 | 2026-06-11 | S1 — F63 | Complete | Pre-capture: 21 rows (14 `{public}`, 7 `{authenticated}`). Post-capture: 21 rows all `{authenticated}`. Playwright 15/15 green. |
+| 2026-06-11 | S2 — F64 items 1–3,6,7 | Complete | Items 1–3,6 clean. Item 1 required view drop/recreate (admin_preorders depends on price_usd) + REVOKE ALL (Supabase default-privilege escalation). Item 7 pre-flight found 44 Playwright orphan profiles (pw-*@example.test, 0 dependent rows); deleted inline before FK add. Playwright 15/15 green. |
 
 ---
 
