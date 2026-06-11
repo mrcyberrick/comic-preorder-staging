@@ -63,7 +63,7 @@ DDL whose *decision* is made in one sub-deploy but whose *execution* is delibera
 
 | Item | Decided | DDL owner | Notes |
 |---|---|---|---|
-| F64 item 5 — `preorders_user_id_fkey` target alignment (staging → `user_profiles` NO ACTION vs prod → `auth.users` CASCADE) | 5.0 S3 (during F58 audit) | Assigned at 5.0 closeout — earliest candidate is a 5.1-adjacent housekeeping commit; must land before 5.4 (signup creates users; deletion path must be canonical first) | Decision + rationale recorded in § 13 F64 item 5 at 5.0; both-env DDL executed under its owner |
+| F64 item 5 — `preorders_user_id_fkey` target alignment | 5.0 S3 (2026-06-11) | 5.1-adjacent housekeeping commit — must land before 5.4 | **Decision: Option A (profile-first, NO ACTION canonical).** Prod needs: drop CASCADE FK, re-add → `user_profiles` NO ACTION. Decision + DDL recorded in § 13 F64 item 5. |
 | F64 item 8 — `idx_tenants_slug` → prod | Phase 4 completion audit (2026-06-10) | Sub-deploy 5.2 (slug-routing wants the index) | Additive index, trivially safe |
 
 ---
